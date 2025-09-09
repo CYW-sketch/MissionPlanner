@@ -247,7 +247,7 @@ namespace MissionPlanner.GCSViews
             // 添加航点输入按钮
             InitializeCoordinateButton();
 
-            // 在右侧面板添加“异地起降”按钮
+            // 在右侧面板添加"异地起降"按钮
             InitializeRemoteTakeoffLandingButton();
             // 在右侧面板添加"设置为异地起降"按钮
             InitializeSetAsRemoteTakeoffLandingButton();
@@ -304,7 +304,7 @@ namespace MissionPlanner.GCSViews
             */
         }
 
-        // 在右侧空白处添加“异地起降”按钮
+        // 在右侧空白处添加"异地起降"按钮
         private void InitializeRemoteTakeoffLandingButton()
         {
             try
@@ -367,6 +367,7 @@ namespace MissionPlanner.GCSViews
             }
             catch { }
         }
+
         //设置为异地起降按钮点击事件
         private void BtnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
@@ -425,6 +426,330 @@ namespace MissionPlanner.GCSViews
             catch (Exception ex)
             {
                 CustomMessageBox.Show("设置异地起降模式时发生错误: " + ex.Message, "错误");
+            }
+        }
+
+        private void BtnRemoteTakeoffLanding_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 读取上一次终点作为本次锁定的起点；若不存在则使用地图中心与默认高度
+                double startLat = 0, startLng = 0, startAlt = 0;
+                bool hasPrevEnd = false;
+                try
+                {
+                    if (Commands.Rows.Count > 0)
+                    {
+                        // 优先：从末尾向前寻找最后一个 WAYPOINT 行
+                        for (int i = Commands.Rows.Count - 1; i >= 0; i--)
+                        {
+                            var row = Commands.Rows[i];
+                            if (row.IsNewRow) continue;
+                            var cmd = row.Cells[Command.Index].Value?.ToString() ?? string.Empty;
+                            if (cmd != MAVLink.MAV_CMD.WAYPOINT.ToString()) continue;
+                            var latObj = row.Cells[Lat.Index].Value;
+                            var lngObj = row.Cells[Lon.Index].Value;
+                            var altObj = row.Cells[Alt.Index].Value;
+                            double latVal, lngVal, altVal;
+                            if (latObj != null && lngObj != null &&
+                                double.TryParse(latObj.ToString(), out latVal) &&
+                                double.TryParse(lngObj.ToString(), out lngVal) &&
+                                !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
+                            {
+                                startLat = latVal;
+                                startLng = lngVal;
+                                if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
+                                startAlt = altVal;
+                                hasPrevEnd = true;
+                                break;
+                            }
+                        }
+
+                        // 退而求其次：找最后一个非零坐标行
+                        if (!hasPrevEnd)
+                        {
+                            for (int i = Commands.Rows.Count - 1; i >= 0; i--)
+                            {
+                                var row = Commands.Rows[i];
+                                if (row.IsNewRow) continue;
+                                var latObj = row.Cells[Lat.Index].Value;
+                                var lngObj = row.Cells[Lon.Index].Value;
+                                var altObj = row.Cells[Alt.Index].Value;
+                                double latVal, lngVal, altVal;
+                                if (latObj != null && lngObj != null &&
+                                    double.TryParse(latObj.ToString(), out latVal) &&
+                                    double.TryParse(lngObj.ToString(), out lngVal) &&
+                                    !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
+                                {
+                                    startLat = latVal;
+                                    startLng = lngVal;
+                                    if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
+                                    startAlt = altVal;
+                                    hasPrevEnd = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!hasPrevEnd)
+                    {
+                        var map = MainMap;
+                        if (map != null)
+                        {
+                            startLat = map.Position.Lat;
+                            startLng = map.Position.Lng;
+                        }
+                        // 设置默认高度为30米
+                        startAlt = 30;
+                    }
+                }
+                catch { }
+
+                bool isFirstBeforeDialog = Commands.Rows.Count == 0;
+                using (var dlg = isFirstBeforeDialog
+                    ? new Controls.RemoteTakeoffLandingForm()
+                    : new Controls.RemoteTakeoffLandingForm(startLat, startLng, startAlt))
+                {
+                    if (dlg.ShowDialog() == DialogResult.OK)
+                    {
+                        // 在地图上放置提示标记（起点与终点）
+                        AddCoordinateMarker(dlg.TakeoffLat, dlg.TakeoffLng, dlg.TakeoffAlt);
+                        AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
+
+                        // 在现有航点末尾追加异地起降段（首次设置时：将起点设为Home并在其前加入TAKEOFF）
+                        try
+                        {
+                            updateUndoBuffer(true);
+                            // 如果末尾已有 RTL，先移除，避免重复
+                            try
+                            {
+                                if (Commands.Rows.Count > 0)
+                                {
+                                    int lastIdx = Commands.Rows.Count - 1;
+                                    var lastCmd = Commands.Rows[lastIdx].Cells[Command.Index].Value?.ToString();
+                                    if (lastCmd == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString())
+                                    {
+                                        Commands.Rows.RemoveAt(lastIdx);
+                                    }
+                                }
+                            }
+                            catch { }
+
+                            int appendStartIndex = Commands.Rows.Count; // 记录追加起始位置
+                            bool isFirst = appendStartIndex == 0;
+
+                            // 判断是否需要在本次段落开始前先起飞：
+                            // 从末尾向前找到最近的 TAKEOFF 或 LAND；若是 LAND，则需要 TAKEOFF
+                            bool needTakeoffBeforeThisSegment = false;
+                            if (!isFirst)
+                            {
+                                for (int i = Commands.Rows.Count - 1; i >= 0; i--)
+                                {
+                                    var row = Commands.Rows[i];
+                                    if (row.IsNewRow) continue;
+                                    var c = row.Cells[Command.Index].Value?.ToString();
+                                    if (string.IsNullOrEmpty(c)) continue;
+                                    if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue; // 忽略 RTL
+                                    if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue; // 忽略普通航点（可能是降落后的标记）
+                                    if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeThisSegment = true; break; }
+                                    if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeThisSegment = false; break; }
+                                }
+                            }
+
+                            if (isFirst)
+                            {
+                                // 首次设置时：根据用户选择决定是否将起点设为 Home
+                                if (dlg.SetAsHome)
+                                {
+                                    try
+                                    {
+                                        TXT_homealt.Text = (srtm.getAltitude(dlg.TakeoffLat, dlg.TakeoffLng).alt * CurrentState.multiplieralt)
+                                            .ToString("0.00");
+                                        TXT_homelat.Text = dlg.TakeoffLat.ToString();
+                                        TXT_homelng.Text = dlg.TakeoffLng.ToString();
+                                    }
+                                    catch { }
+                                }
+
+                                // 首次：在该航点前加入起飞指令与起点WAYPOINT
+                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.TakeoffAlt, null);
+                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                                
+                                // 设置Frame模式（仿地飞行或等高飞行）
+                                if (dlg.TerrainFollowing)
+                                {
+                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Terrain; // TAKEOFF
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain; // WAYPOINT
+                            }
+                            else
+                            {
+                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Absolute; // TAKEOFF
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute; // WAYPOINT
+                                }
+                            }
+                            else
+                            {
+                                // 后续追加：无需再加入起飞与起点WAYPOINT，直接进入 DO_DIGICAM_CONFIGURE 和 LAND
+                            }
+
+                            // 根据用户选择生成不同指令序列
+                            if (dlg.ShouldLand)
+                            {
+                                // 如前一段以 LAND 结束，则先起飞
+                                if (needTakeoffBeforeThisSegment)
+                                {
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
+                                    // 设置TAKEOFF的Frame模式
+                                    if (dlg.TerrainFollowing)
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                    else
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                }
+                                // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
+                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                                // 设置WAYPOINT的Frame模式
+                                if (dlg.TerrainFollowing)
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                else
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                // 根据降落模式生成DO_DIGICAM_CONFIGURE指令
+                                switch (dlg.SelectedLandingMode)
+                                {
+                                    case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                                        // 降落地面，然后返航：高度0，等待时间0（按键机解锁）
+                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34, 1, 0, 0, null);
+                                    AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);                                    
+                                        break;
+                                        
+                                    case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                                        // 降落地面，释放货物后返航：高度0，等待时间为用户设置的时间（0=按键启动，>0=自动等待）
+                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 1, 0, 0, null);
+                                        AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);
+                                        break;
+                                        
+                                    case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                                        // 高空抛投：高度为用户设置的高度，等待时间0（按键机解锁）
+                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 1, 0, 0, null);
+                                        AddCommand(MAVLink.MAV_CMD.LAND, dlg.DropHeight + 3, 0, 0, 1, 0, 0, 0, null);
+                                        break;
+                                }
+                                
+                                // 设置LAND的Frame模式
+                                if (dlg.TerrainFollowing)
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                else
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+
+                            }
+                            else
+                            {
+                                // 经过模式：只插入 WAYPOINT（高度默认30）
+                                if (needTakeoffBeforeThisSegment)
+                                {
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
+                                    // 设置TAKEOFF的Frame模式
+                                    if (dlg.TerrainFollowing)
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                    else
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                }
+                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                                // 设置WAYPOINT的Frame模式
+                                if (dlg.TerrainFollowing)
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                else
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                            }
+
+                            
+                            // 在地图上追加一个终点附近的过渡点标记（可选，这里直接用终点）
+                            AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
+
+                            // 始终保证最后一条为 RETURN_TO_LAUNCH；
+                            // 若在追加 RTL 前，最近关键指令为 LAND，则先插入 TAKEOFF 再插入 RTL
+                            try
+                            {
+                                if (Commands.Rows.Count > 0)
+                                {
+                                    int last = Commands.Rows.Count - 1;
+                                    var lastCmd = Commands.Rows[last].Cells[Command.Index].Value?.ToString();
+                                    if (lastCmd != MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString())
+                                    {
+                                        bool needTakeoffBeforeRTL = false;
+                                        for (int i = Commands.Rows.Count - 1; i >= 0; i--)
+                                        {
+                                            var row = Commands.Rows[i];
+                                            if (row.IsNewRow) continue;
+                                            var c = row.Cells[Command.Index].Value?.ToString();
+                                            if (string.IsNullOrEmpty(c)) continue;
+                                            if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue;
+                                            if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue;
+                                            if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeRTL = true; break; }
+                                            if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeRTL = false; break; }
+                                        }
+                                        if (needTakeoffBeforeRTL)
+                                        {
+                                            AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, 30, null);
+                                            // 设置TAKEOFF的Frame模式
+                                            if (dlg.TerrainFollowing)
+                                                Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                            else
+                                                Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                        }
+                                        AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
+                        // 返航指令默认使用Absolute模式
+                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                    }
+                                }
+                            }
+                            catch { }
+
+                            UpdateCoordinateButtonText();
+                        string mode;
+                        switch (dlg.SelectedLandingMode)
+                        {
+                            case RemoteTakeoffLandingForm.LandingMode.PassThrough:
+                                mode = "经过";
+                                break;
+                            case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                                mode = "降落地面";
+                                break;
+                            case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                                mode = "降落地面+释放货物";
+                                break;
+                            case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                                mode = "高空抛投";
+                                break;
+                            default:
+                                mode = "未知";
+                                break;
+                        }
+                        
+                        string sequence;
+                        switch (dlg.SelectedLandingMode)
+                        {
+                            case RemoteTakeoffLandingForm.LandingMode.PassThrough:
+                                sequence = ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}终点WAYPOINT(30m)");
+                                break;
+                            default:
+                                sequence = ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}WAYPOINT → DO_DIGICAM_CONFIGURE → LAND");
+                                break;
+                        }
+                        
+                            string homeInfo = (isFirst && dlg.SetAsHome) ? "，已设为Home点" : "";
+                            
+                            CustomMessageBox.Show($"已{(isFirst ? "生成" : "追加")}异地起降段（{mode}模式）{homeInfo}：{sequence}。", "成功");
+                        }
+                        catch (Exception ex2)
+                        {
+                            CustomMessageBox.Show("插入命令失败: " + ex2.Message, "错误");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("异地起降操作失败: " + ex.Message, "错误");
             }
         }
 
@@ -619,288 +944,6 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void BtnRemoteTakeoffLanding_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                // 读取上一次终点作为本次锁定的起点；若不存在则使用地图中心与默认高度
-                double startLat = 0, startLng = 0, startAlt = 0;
-                bool hasPrevEnd = false;
-                try
-                {
-                    if (Commands.Rows.Count > 0)
-                    {
-                        // 优先：从末尾向前寻找最后一个 WAYPOINT 行
-                        for (int i = Commands.Rows.Count - 1; i >= 0; i--)
-                        {
-                            var row = Commands.Rows[i];
-                            if (row.IsNewRow) continue;
-                            var cmd = row.Cells[Command.Index].Value?.ToString() ?? string.Empty;
-                            if (cmd != MAVLink.MAV_CMD.WAYPOINT.ToString()) continue;
-                            var latObj = row.Cells[Lat.Index].Value;
-                            var lngObj = row.Cells[Lon.Index].Value;
-                            var altObj = row.Cells[Alt.Index].Value;
-                            double latVal, lngVal, altVal;
-                            if (latObj != null && lngObj != null &&
-                                double.TryParse(latObj.ToString(), out latVal) &&
-                                double.TryParse(lngObj.ToString(), out lngVal) &&
-                                !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
-                            {
-                                startLat = latVal;
-                                startLng = lngVal;
-                                if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
-                                startAlt = altVal;
-                                hasPrevEnd = true;
-                                break;
-                            }
-                        }
-
-                        // 退而求其次：找最后一个非零坐标行
-                        if (!hasPrevEnd)
-                        {
-                            for (int i = Commands.Rows.Count - 1; i >= 0; i--)
-                            {
-                                var row = Commands.Rows[i];
-                                if (row.IsNewRow) continue;
-                                var latObj = row.Cells[Lat.Index].Value;
-                                var lngObj = row.Cells[Lon.Index].Value;
-                                var altObj = row.Cells[Alt.Index].Value;
-                                double latVal, lngVal, altVal;
-                                if (latObj != null && lngObj != null &&
-                                    double.TryParse(latObj.ToString(), out latVal) &&
-                                    double.TryParse(lngObj.ToString(), out lngVal) &&
-                                    !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
-                                {
-                                    startLat = latVal;
-                                    startLng = lngVal;
-                                    if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
-                                    startAlt = altVal;
-                                    hasPrevEnd = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (!hasPrevEnd)
-                    {
-                        var map = MainMap;
-                        if (map != null)
-                        {
-                            startLat = map.Position.Lat;
-                            startLng = map.Position.Lng;
-                        }
-                        // 设置默认高度为30米
-                        startAlt = 30;
-                    }
-                }
-                catch { }
-
-                bool isFirstBeforeDialog = Commands.Rows.Count == 0;
-                using (var dlg = isFirstBeforeDialog
-                    ? new Controls.RemoteTakeoffLandingForm()
-                    : new Controls.RemoteTakeoffLandingForm(startLat, startLng, startAlt))
-                {
-                    if (dlg.ShowDialog() == DialogResult.OK)
-                    {
-                        // 在地图上放置提示标记（起点与终点）
-                        AddCoordinateMarker(dlg.TakeoffLat, dlg.TakeoffLng, dlg.TakeoffAlt);
-                        AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
-
-                        // 在现有航点末尾追加异地起降段（首次设置时：将起点设为Home并在其前加入TAKEOFF）
-                        try
-                        {
-                            updateUndoBuffer(true);
-                            // 如果末尾已有 RTL，先移除，避免重复
-                            try
-                            {
-                                if (Commands.Rows.Count > 0)
-                                {
-                                    int lastIdx = Commands.Rows.Count - 1;
-                                    var lastCmd = Commands.Rows[lastIdx].Cells[Command.Index].Value?.ToString();
-                                    if (lastCmd == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString())
-                                    {
-                                        Commands.Rows.RemoveAt(lastIdx);
-                                    }
-                                }
-                            }
-                            catch { }
-                            // 过渡点计算（保留注释，按需自行启用）
-                            // double Lerp(double a, double b, double t) { return a + (b - a) * t; }
-                            // double wp1Lat = Lerp(dlg.TakeoffLat, dlg.LandLat, 1.0 / 3.0);
-                            // double wp1Lng = Lerp(dlg.TakeoffLng, dlg.LandLng, 1.0 / 3.0);
-                            // double wp1Alt = Lerp(dlg.TakeoffAlt, dlg.LandAlt, 1.0 / 3.0);
-                            // double wp2Lat = Lerp(dlg.TakeoffLat, dlg.LandLat, 2.0 / 3.0);
-                            // double wp2Lng = Lerp(dlg.TakeoffLng, dlg.LandLng, 2.0 / 3.0);
-                            // double wp2Alt = Lerp(dlg.TakeoffAlt, dlg.LandAlt, 2.0 / 3.0);
-
-                            int appendStartIndex = Commands.Rows.Count; // 记录追加起始位置
-                            bool isFirst = appendStartIndex == 0;
-
-                            // 判断是否需要在本次段落开始前先起飞：
-                            // 从末尾向前找到最近的 TAKEOFF 或 LAND；若是 LAND，则需要 TAKEOFF
-                            bool needTakeoffBeforeThisSegment = false;
-                            if (!isFirst)
-                            {
-                                for (int i = Commands.Rows.Count - 1; i >= 0; i--)
-                                {
-                                    var row = Commands.Rows[i];
-                                    if (row.IsNewRow) continue;
-                                    var c = row.Cells[Command.Index].Value?.ToString();
-                                    if (string.IsNullOrEmpty(c)) continue;
-                                    if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue; // 忽略 RTL
-                                    if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue; // 忽略普通航点（可能是降落后的标记）
-                                    if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeThisSegment = true; break; }
-                                    if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeThisSegment = false; break; }
-                                }
-                            }
-
-                            if (isFirst)
-                            {
-                                // 首次设置时：根据用户选择决定是否将起点设为 Home
-                                if (dlg.SetAsHome)
-                                {
-                                    try
-                                    {
-                                        TXT_homealt.Text = (srtm.getAltitude(dlg.TakeoffLat, dlg.TakeoffLng).alt * CurrentState.multiplieralt)
-                                            .ToString("0.00");
-                                        TXT_homelat.Text = dlg.TakeoffLat.ToString();
-                                        TXT_homelng.Text = dlg.TakeoffLng.ToString();
-                                    }
-                                    catch { }
-                                }
-
-                                // 首次：在该航点前加入起飞指令与起点WAYPOINT
-                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.TakeoffAlt, null);
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
-                            }
-                            else
-                            {
-                                // 后续追加：无需再加入起飞与起点WAYPOINT，直接进入 DO_DIGICAM_CONFIGURE 和 LAND
-                            }
-
-                            // 检查前一个点是否为落地指令，且DO_DIGICAM_CONFIGURE高度参数为0
-                            bool needTakeoffAfterLand = false;
-                            if (!isFirst && Commands.Rows.Count > 0)
-                            {
-                                // 从末尾向前查找最后一个DO_DIGICAM_CONFIGURE和LAND
-                                for (int i = Commands.Rows.Count - 1; i >= 0; i--)
-                                {
-                                    var row = Commands.Rows[i];
-                                    if (row.IsNewRow) continue;
-                                    
-                                    var cmd = row.Cells[Command.Index].Value?.ToString();
-                                    if (cmd == MAVLink.MAV_CMD.LAND.ToString())
-                                    {
-                                        // 找到LAND，检查前面是否有DO_DIGICAM_CONFIGURE且高度参数为0
-                                        if (i > 0)
-                                        {
-                                            var prevRow = Commands.Rows[i - 1];
-                                            var prevCmd = prevRow.Cells[Command.Index].Value?.ToString();
-                                            if (prevCmd == MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE.ToString())
-                                            {
-                                                // 检查DO_DIGICAM_CONFIGURE的第二个参数（高度）
-                                                var param2 = prevRow.Cells[Param2.Index].Value;
-                                                if (param2 != null && double.TryParse(param2.ToString(), out double height) && Math.Abs(height) < double.Epsilon)
-                                                {
-                                                    needTakeoffAfterLand = true;
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // 根据用户选择生成不同指令序列
-                            if (dlg.ShouldLand)
-                            {
-                                // 如前一段以 LAND 结束，则先起飞
-                                if (needTakeoffBeforeThisSegment)
-                                {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
-                                }
-                                // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
-                                //如果选择高空抛物
-                                if(dlg.LandingHeight>0)
-                                {
-                                    AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.LandingHeight, 3, 34, 0, 1, 0, null);
-                                    AddCommand(MAVLink.MAV_CMD.LAND, dlg.LandingHeight+3, 0, 0, 1, 0, 0, 0, null);                                    
-                                }
-                                else//直接落地
-                                {
-                                    AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 3, 34, 0, 1, 0, null);
-                                    AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);                                    
-                                }
-
-                            }
-                            else
-                            {
-                                // 经过模式：只插入 WAYPOINT（高度默认30）
-                                if (needTakeoffBeforeThisSegment)
-                                {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
-                                }
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
-                            }
-
-                            
-                            // 在地图上追加一个终点附近的过渡点标记（可选，这里直接用终点）
-                            AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
-
-                            // 始终保证最后一条为 RETURN_TO_LAUNCH；
-                            // 若在追加 RTL 前，最近关键指令为 LAND，则先插入 TAKEOFF 再插入 RTL
-                            try
-                            {
-                                if (Commands.Rows.Count > 0)
-                                {
-                                    int last = Commands.Rows.Count - 1;
-                                    var lastCmd = Commands.Rows[last].Cells[Command.Index].Value?.ToString();
-                                    if (lastCmd != MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString())
-                                    {
-                                        bool needTakeoffBeforeRTL = false;
-                                        for (int i = Commands.Rows.Count - 1; i >= 0; i--)
-                                        {
-                                            var row = Commands.Rows[i];
-                                            if (row.IsNewRow) continue;
-                                            var c = row.Cells[Command.Index].Value?.ToString();
-                                            if (string.IsNullOrEmpty(c)) continue;
-                                            if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue;
-                                            if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue;
-                                            if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeRTL = true; break; }
-                                            if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeRTL = false; break; }
-                                        }
-                                        if (needTakeoffBeforeRTL)
-                                        {
-                                            AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, 30, null);
-                                        }
-                                        AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
-                                    }
-                                }
-                            }
-                            catch { }
-
-                            UpdateCoordinateButtonText();
-                            string mode = dlg.ShouldLand ? "降落" : "经过";
-                            string homeInfo = (isFirst && dlg.SetAsHome) ? "，已设为Home点" : "";
-                            string sequence = dlg.ShouldLand 
-                                ? ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}WAYPOINT → DO_DIGICAM_CONFIGURE → LAND")
-                                : ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}终点WAYPOINT(30m)");
-                            
-                            CustomMessageBox.Show($"已{(isFirst ? "生成" : "追加")}异地起降段（{mode}模式）{homeInfo}：{sequence}。", "成功");
-                        }
-                        catch (Exception ex2)
-                        {
-                            CustomMessageBox.Show("插入命令失败: " + ex2.Message, "错误");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                CustomMessageBox.Show("异地起降操作失败: " + ex.Message, "错误");
-            }
-        }
 
         public static FlightPlanner instance { get; set; }
 

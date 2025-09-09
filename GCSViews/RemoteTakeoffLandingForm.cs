@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using MissionPlanner.Utilities;
 
@@ -16,43 +17,61 @@ namespace MissionPlanner.Controls
         public bool ShouldLand { get; private set; }
         public double LandingHeight { get; private set; }
         public bool SetAsHome { get; private set; }
+        public bool TerrainFollowing { get; private set; }
+        
+        // 降落模式枚举
+        public enum LandingMode
+        {
+            PassThrough,    // 经过航点（不降落）
+            LandGround,     // 降落地面，然后返航
+            LandCargo,      // 降落地面，释放货物后返航
+            LandDrop        // 高空抛投
+        }
+        
+        public LandingMode SelectedLandingMode { get; private set; }
+        public double CargoTime { get; private set; }      // 货物释放时间（秒）
+        public double DropHeight { get; private set; }     // 抛投高度（米）
 
-        TextBox txtTLat, txtTLng, txtTAlt, txtLLat, txtLLng, txtLAlt, txtLandingHeight;
-        RadioButton rbPassThrough, rbLand;
-        CheckBox chkSetAsHome;
+        TextBox txtTLat, txtTLng, txtTAlt, txtLLat, txtLLng, txtLAlt, txtLandingHeight, txtCargoTime, txtDropHeight;
+        RadioButton rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop;
+        CheckBox chkSetAsHome, chkTerrainFollowing;
         Button btnOK, btnCancel;
+        Label lblCargoTime, lblDropHeight;
 
         public RemoteTakeoffLandingForm()
         {
             InitializeComponent();
             ThemeManager.ApplyThemeTo(this);
-            // 设置默认值：与添加航点一致，使用当前地图中心与默认高度
-            // 初始化降落高度锁定状态
-            UpdateLandingHeightLock();
+            
+            // 自动获取地图中心作为起飞点
             try
             {
-                if (MainV2.instance != null && MainV2.instance.FlightPlanner != null)
+                if (MainV2.instance?.FlightPlanner?.MainMap != null)
                 {
                     var map = MainV2.instance.FlightPlanner.MainMap;
-                    if (map != null)
-                    {
-                        string lat = map.Position.Lat.ToString("F6");
-                        string lng = map.Position.Lng.ToString("F6");
-                        txtTLat.Text = lat;
-                        txtTLng.Text = lng;
-                        txtLLat.Text = lat;
-                        txtLLng.Text = lng;
-                    }
-                    // 设置默认高度为30米
-                    txtTAlt.Text = "30";
-                    txtLAlt.Text = "30";
-                    txtLandingHeight.Text = "0";
+                    TakeoffLat = map.Position.Lat;
+                    TakeoffLng = map.Position.Lng;
+                    TakeoffAlt = 30; // 默认起飞高度30米
                     
-                    // 绑定选项框事件，当选择降落时锁定降落高度
-                    rbLand.CheckedChanged += (s, e) => UpdateLandingHeightLock();
-                    // 初始化降落高度锁定状态
-                    UpdateLandingHeightLock();
+                    // 更新起飞点显示信息
+                    UpdateTakeoffInfo();
+                    
+                    // 设置目的地默认值为上一个航点（如果有的话）
+                    SetDestinationDefaultValue();
                 }
+                
+                // 设置默认值
+                txtLandingHeight.Text = "0";
+                rbPassThrough.Checked = true;
+                
+                // 绑定事件
+                rbPassThrough.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+                rbLandGround.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+                rbLandCargo.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+                rbLandDrop.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+                
+                // 初始化降落选项可见性（确保初始状态正确）
+                UpdateLandingOptionsVisibility();
             }
             catch { }
         }
@@ -62,104 +81,117 @@ namespace MissionPlanner.Controls
         {
             try
             {
-                txtTLat.Text = lockedStartLat.ToString("F6");
-                txtTLng.Text = lockedStartLng.ToString("F6");
-                txtTAlt.Text = lockedStartAlt.ToString("0.##");
-                txtLandingHeight.Text = "30";
-
-                txtTLat.ReadOnly = true;
-                txtTLng.ReadOnly = true;
-                txtTAlt.ReadOnly = true;
-
-                txtTLat.TabStop = false;
-                txtTLng.TabStop = false;
-                txtTAlt.TabStop = false;
-
-                // 提示被锁定的视觉效果
-                txtTLat.BackColor = SystemColors.Control;
-                txtTLng.BackColor = SystemColors.Control;
-                txtTAlt.BackColor = SystemColors.Control;
+                // 设置锁定的起飞点
+                TakeoffLat = lockedStartLat;
+                TakeoffLng = lockedStartLng;
+                TakeoffAlt = lockedStartAlt;
                 
-                // 追加模式：保持显示，但锁定Home选项，不可再次更改
-                chkSetAsHome.Checked = false;
-                chkSetAsHome.Enabled = false;
+                // 更新起飞点显示信息
+                UpdateTakeoffInfo();
                 
-                // 调整按钮位置，因为隐藏了Home点选项
-                btnOK.Location = new Point(160, 470);
-                btnCancel.Location = new Point(290, 470);
-                this.ClientSize = new Size(520, 520);
+                // 调整按钮位置（因为界面更紧凑了）
+                btnOK.Location = new Point(120, 380);
+                btnCancel.Location = new Point(240, 380);
+                this.ClientSize = new Size(450, 440);
             }
             catch { }
         }
 
         private void InitializeComponent()
         {
-            this.Text = "异地起降";
+            this.Text = "异地起降 - 简化版";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
 
-            var lblT = new Label { Text = "起飞点", AutoSize = true, Location = new Point(28, 18) };
-            var lblTLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(28, 50) };
-            var lblTLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(28, 84) };
-            var lblTALT = new Label { Text = "高度(米):", AutoSize = true, Location = new Point(28, 118) };
-            txtTLat = new TextBox { Location = new Point(150, 46), Size = new Size(260, 23), Text = "0" };
-            txtTLng = new TextBox { Location = new Point(150, 80), Size = new Size(260, 23), Text = "0" };
-            txtTAlt = new TextBox { Location = new Point(150, 114), Size = new Size(260, 23), Text = "30" };
+            // 起飞点信息显示（只读，自动获取）
+            var lblTakeoffTitle = new Label { Text = "起飞点（自动获取）", AutoSize = true, Location = new Point(20, 20), Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
+            var lblTakeoffInfo = new Label { Text = "纬度: --, 经度: --, 高度: 30米", AutoSize = true, Location = new Point(20, 45), ForeColor = Color.DarkBlue };
 
-            // 设置为Home放在起飞点和降落点之间
-            var lblSetHome = new Label { Text = "设置为home:", AutoSize = true, Location = new Point(28, 154) };
-            chkSetAsHome = new CheckBox { Text = "", AutoSize = true, Location = new Point(150, 152), Checked = true };
+            // 仿地飞行选项（在目的地输入上方）
+            chkTerrainFollowing = new CheckBox { Text = "启用仿地飞行", AutoSize = true, Location = new Point(20, 75), Checked = true };
+            var lblTerrainTip = new Label { Text = "※ 启用后使用Terrain模式，禁用则使用Absolute模式", AutoSize = true, Location = new Point(20, 95), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 8F) };
 
-            var lblL = new Label { Text = "降落点", AutoSize = true, Location = new Point(28, 196) };
-            var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(28, 230) };
-            var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(28, 264) };
-            var lblLALT = new Label { Text = "高度(米):", AutoSize = true, Location = new Point(28, 298) };
-            txtLLat = new TextBox { Location = new Point(150, 226), Size = new Size(260, 23), Text = "0" };
-            txtLLng = new TextBox { Location = new Point(150, 260), Size = new Size(260, 23), Text = "0" };
-            txtLAlt = new TextBox { Location = new Point(150, 294), Size = new Size(260, 23), Text = "30" };
+            // 目的地输入（用户需要输入的部分）
+            var lblDestinationTitle = new Label { Text = "目的地", AutoSize = true, Location = new Point(20, 115), Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
+            var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(20, 145) };
+            var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(20, 175) };
+            var lblLALT = new Label { Text = "高度(米):", AutoSize = true, Location = new Point(20, 205) };
+            txtLLat = new TextBox { Location = new Point(100, 143), Size = new Size(200, 23), Text = "0" };
+            txtLLng = new TextBox { Location = new Point(100, 173), Size = new Size(200, 23), Text = "0" };
+            txtLAlt = new TextBox { Location = new Point(100, 203), Size = new Size(200, 23), Text = "30" };
+
+            // 飞行模式选项
+            var lblOptions = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(20, 235), Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
+            rbPassThrough = new RadioButton { Text = "经过航点（不降落）", AutoSize = true, Location = new Point(20, 260), Checked = true };
+            rbLandGround = new RadioButton { Text = "降落地面，然后返航", AutoSize = true, Location = new Point(20, 285) };
+            rbLandCargo = new RadioButton { Text = "降落地面，释放货物后返航", AutoSize = true, Location = new Point(20, 310) };
+            rbLandDrop = new RadioButton { Text = "高空抛投", AutoSize = true, Location = new Point(20, 335) };
             
-            // 上方已添加"设置为home"控件
-
-            // 添加选项框
-            var lblOptions = new Label { Text = "降落选项", AutoSize = true, Location = new Point(28, 332) };
-            rbPassThrough = new RadioButton { Text = "直接经过航点不降落", AutoSize = true, Location = new Point(28, 358), Checked = true };
-            rbLand = new RadioButton { Text = "直接降落", AutoSize = true, Location = new Point(28, 386) };
-            var lblLandingHeight = new Label { Text = "降落高度(米):", AutoSize = true, Location = new Point(28, 414) };
-            txtLandingHeight = new TextBox { Location = new Point(150, 410), Size = new Size(260, 23), Text = "0" };
-
-            btnOK = new Button { Text = "确定", Location = new Point(160, 520), Size = new Size(100, 30), DialogResult = DialogResult.OK };
-            btnCancel = new Button { Text = "取消", Location = new Point(290, 520), Size = new Size(100, 30), DialogResult = DialogResult.Cancel };
+            // 降落参数输入（移动到对应选项右侧）
+            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(220, 310) };
+            txtCargoTime = new TextBox { Location = new Point(300, 308), Size = new Size(60, 23), Text = "0" }; // 默认0，按键启动
+            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(220, 335) };
+            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "30" }; // 默认30
+            
+            // 按钮
+            btnOK = new Button { Text = "确定", Location = new Point(120, 380), Size = new Size(100, 30), DialogResult = DialogResult.OK };
+            btnCancel = new Button { Text = "取消", Location = new Point(240, 380), Size = new Size(100, 30), DialogResult = DialogResult.Cancel };
             btnOK.Click += BtnOK_Click;
 
             this.AcceptButton = btnOK;
             this.CancelButton = btnCancel;
-            this.ClientSize = new Size(520, 600);
-            this.Controls.AddRange(new Control[] { lblT, lblTLAT, lblTLNG, lblTALT, txtTLat, txtTLng, txtTAlt, lblL, lblLLAT, lblLLNG, lblLALT, txtLLat, txtLLng, txtLAlt, lblSetHome, chkSetAsHome, lblOptions, rbPassThrough, rbLand, lblLandingHeight, txtLandingHeight, btnOK, btnCancel });
+            this.ClientSize = new Size(450, 440);
+            this.Controls.AddRange(new Control[] { 
+                lblTakeoffTitle, lblTakeoffInfo,
+                chkTerrainFollowing, lblTerrainTip,
+                lblDestinationTitle, lblLLAT, lblLLNG, lblLALT, txtLLat, txtLLng, txtLAlt,
+                lblOptions, rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop,
+                lblCargoTime, txtCargoTime, lblDropHeight, txtDropHeight,
+                btnOK, btnCancel 
+            });
         }
 
         private void BtnOK_Click(object sender, EventArgs e)
         {
-            if (!validateNumber(txtTLat, -90, 90, "起飞点纬度")) { this.DialogResult = DialogResult.None; return; }
-            if (!validateNumber(txtTLng, -180, 180, "起飞点经度")) { this.DialogResult = DialogResult.None; return; }
-            if (!validateNumber(txtTAlt, null, null, "起飞点高度")) { this.DialogResult = DialogResult.None; return; }
+            // 简化验证：只验证目的地坐标和降落高度
+            if (!validateNumber(txtLLat, -90, 90, "目的地纬度")) { this.DialogResult = DialogResult.None; return; }
+            if (!validateNumber(txtLLng, -180, 180, "目的地经度")) { this.DialogResult = DialogResult.None; return; }
+            if (!validateNumber(txtLAlt, null, null, "目的地高度")) { this.DialogResult = DialogResult.None; return; }
 
-            if (!validateNumber(txtLLat, -90, 90, "降落点纬度")) { this.DialogResult = DialogResult.None; return; }
-            if (!validateNumber(txtLLng, -180, 180, "降落点经度")) { this.DialogResult = DialogResult.None; return; }
-            if (!validateNumber(txtLAlt, null, null, "降落点高度")) { this.DialogResult = DialogResult.None; return; }
+            // 验证降落参数
+            if (rbLandCargo.Checked && !validateNumber(txtCargoTime, 1, 300, "货物释放时间")) 
+            { 
+                this.DialogResult = DialogResult.None; 
+                return; 
+            }
+            if (rbLandDrop.Checked && !validateNumber(txtDropHeight, 10, 200, "抛投高度")) 
+            { 
+                this.DialogResult = DialogResult.None; 
+                return; 
+            }
 
-            if (!validateNumber(txtLandingHeight, null, null, "降落高度")) { this.DialogResult = DialogResult.None; return; }
-
-            TakeoffLat = double.Parse(txtTLat.Text);
-            TakeoffLng = double.Parse(txtTLng.Text);
-            TakeoffAlt = double.Parse(txtTAlt.Text);
+            // 设置属性（起飞点坐标已在构造函数中设置）
             LandLat = double.Parse(txtLLat.Text);
             LandLng = double.Parse(txtLLng.Text);
             LandAlt = double.Parse(txtLAlt.Text);
-            ShouldLand = rbLand.Checked;
-            LandingHeight = double.Parse(txtLandingHeight.Text);
-            SetAsHome = chkSetAsHome.Checked;
+            
+            // 设置降落模式
+            if (rbPassThrough.Checked)
+                SelectedLandingMode = LandingMode.PassThrough;
+            else if (rbLandGround.Checked)
+                SelectedLandingMode = LandingMode.LandGround;
+            else if (rbLandCargo.Checked)
+                SelectedLandingMode = LandingMode.LandCargo;
+            else if (rbLandDrop.Checked)
+                SelectedLandingMode = LandingMode.LandDrop;
+                
+            ShouldLand = SelectedLandingMode != LandingMode.PassThrough;
+            CargoTime = rbLandCargo.Checked ? double.Parse(txtCargoTime.Text) : 0;
+            DropHeight = rbLandDrop.Checked ? double.Parse(txtDropHeight.Text) : 0;
+            SetAsHome = true; // 自动设置为Home点
+            TerrainFollowing = chkTerrainFollowing.Checked; // 设置仿地飞行选项
         }
 
         private bool validateNumber(TextBox tb, double? min, double? max, string name)
@@ -171,21 +203,77 @@ namespace MissionPlanner.Controls
             return true;
         }
         
-        private void UpdateLandingHeightLock()
+        private void SetDestinationDefaultValue()
         {
-            if (rbLand.Checked)
+            try
             {
-                // 选择降落时，解锁降落高度输入框，用户可自定义
-                txtLandingHeight.ReadOnly = false;
-                txtLandingHeight.TabStop = true;
+                // 获取上一个航点的坐标作为目的地默认值
+                if (MainV2.comPort?.MAV?.wps != null)
+                {
+                    var waypoints = MainV2.comPort.MAV.wps;
+                    
+                    if (waypoints != null && waypoints.Count > 0)
+                    {
+                        // 获取最后一个航点
+                        var lastWaypoint = waypoints[waypoints.Count - 1];
+                        txtLLat.Text = (lastWaypoint.x / 1e7).ToString("F6");
+                        txtLLng.Text = (lastWaypoint.y / 1e7).ToString("F6");
+                        txtLAlt.Text = (lastWaypoint.z / 100).ToString("0");
+                    }
+                    else
+                    {
+                        // 如果没有航点，使用地图中心作为默认值
+                        if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                        {
+                            var map = MainV2.instance.FlightPlanner.MainMap;
+                            txtLLat.Text = map.Position.Lat.ToString("F6");
+                            txtLLng.Text = map.Position.Lng.ToString("F6");
+                            txtLAlt.Text = "30";
+                        }
+                    }
+                }
+                else
+                {
+                    // 如果无法获取航点，使用地图中心作为默认值
+                    if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                    {
+                        var map = MainV2.instance.FlightPlanner.MainMap;
+                        txtLLat.Text = map.Position.Lat.ToString("F6");
+                        txtLLng.Text = map.Position.Lng.ToString("F6");
+                        txtLAlt.Text = "30";
+                    }
+                }
             }
-            else
+            catch
             {
-                // 选择经过时，锁定降落高度输入框（因为不需要降落）
-                // 保持当前文本内容不变，只是设为只读
-                txtLandingHeight.ReadOnly = true;
-                txtLandingHeight.TabStop = false;
-                // 不修改Text内容，保持用户上次输入的值
+                // 如果出错，使用地图中心作为默认值
+                try
+                {
+                    if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                    {
+                        var map = MainV2.instance.FlightPlanner.MainMap;
+                        txtLLat.Text = map.Position.Lat.ToString("F6");
+                        txtLLng.Text = map.Position.Lng.ToString("F6");
+                        txtLAlt.Text = "30";
+                    }
+                }
+                catch { }
+            }
+        }
+        
+        private void UpdateLandingOptionsVisibility()
+        {
+            // 所有输入框始终显示，不需要控制可见性
+            // 保留此方法以防将来需要添加其他逻辑
+        }
+        
+        private void UpdateTakeoffInfo()
+        {
+            // 更新起飞点显示信息
+            var lblTakeoffInfo = this.Controls.OfType<Label>().FirstOrDefault(l => l.Text.Contains("纬度: --"));
+            if (lblTakeoffInfo != null)
+            {
+                lblTakeoffInfo.Text = $"纬度: {TakeoffLat:F6}, 经度: {TakeoffLng:F6}, 高度: {TakeoffAlt}米";
             }
         }
     }
