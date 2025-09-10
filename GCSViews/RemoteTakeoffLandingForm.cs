@@ -99,7 +99,7 @@ namespace MissionPlanner.Controls
 
         private void InitializeComponent()
         {
-            this.Text = "异地起降 - 简化版";
+            this.Text = "异地起降";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
