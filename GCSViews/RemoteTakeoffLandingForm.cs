@@ -132,7 +132,7 @@ namespace MissionPlanner.Controls
             lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(210, 310) };
             txtCargoTime = new TextBox { Location = new Point(300, 308), Size = new Size(60, 23), Text = "0" }; // 默认5秒
             lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(210, 335) };
-            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "50" }; // 默认50米
+            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "30" }; // 默认50米
             
             // 按钮
             btnOK = new Button { Text = "确定", Location = new Point(120, 380), Size = new Size(100, 30), DialogResult = DialogResult.OK };
