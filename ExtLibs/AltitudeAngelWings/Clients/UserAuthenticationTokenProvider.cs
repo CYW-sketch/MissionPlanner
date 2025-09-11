@@ -59,11 +59,11 @@ namespace AltitudeAngelWings.Clients
                 }
                 else
                 {
-                    await _messagesService.AddMessageAsync(Message.ForAction(
-                        "AskToSignIn",
-                        "You need to sign into Altitude Angel. Click here to sign in.",
-                        () => Task.Factory.StartNew(() => AskUserForAccessToken(CancellationToken.None), cancellationToken),
-                        () => _settings.TokenResponse.IsValidForAuth()));
+                    // await _messagesService.AddMessageAsync(Message.ForAction(
+                    //     "AskToSignIn",
+                    //     "You need to sign into Altitude Angel. Click here to sign in.",
+                    //     () => Task.Factory.StartNew(() => AskUserForAccessToken(CancellationToken.None), cancellationToken),
+                    //     () => _settings.TokenResponse.IsValidForAuth()));
                     return null;
                 }
             }

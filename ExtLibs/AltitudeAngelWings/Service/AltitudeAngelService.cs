@@ -103,12 +103,12 @@ namespace AltitudeAngelWings.Service
             {
                 // Ignore these as they'll be messaged by the sign in components
             }
-            catch (Exception ex)
-            {
-                await _messagesService.AddMessageAsync(
-                    Message.ForError("There was a problem signing you in to Altitude Angel.", ex));
-                _settings.TokenResponse = null;
-            }
+            // catch (Exception ex)
+            // {
+            //     await _messagesService.AddMessageAsync(
+            //         Message.ForError("There was a problem signing you in to Altitude Angel.", ex));
+            //     _settings.TokenResponse = null;
+            // }
             finally
             {
                 _signInLock.Release();
