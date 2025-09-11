@@ -62,16 +62,12 @@ namespace MissionPlanner.Controls
                 
                 // 设置默认值
                 txtLandingHeight.Text = "0";
-                rbPassThrough.Checked = true;
-                
-                // 绑定事件
-                rbPassThrough.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
-                rbLandGround.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
-                rbLandCargo.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
-                rbLandDrop.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
                 
                 // 初始化降落选项可见性（确保初始状态正确）
                 UpdateLandingOptionsVisibility();
+                
+                // 窗体加载完成后再次确保状态正确
+                this.Load += (s, e) => UpdateLandingOptionsVisibility();
             }
             catch { }
         }
@@ -88,6 +84,9 @@ namespace MissionPlanner.Controls
                 
                 // 更新起飞点显示信息
                 UpdateTakeoffInfo();
+                
+                // 确保降落选项状态正确
+                UpdateLandingOptionsVisibility();
                 
                 // 调整按钮位置（因为界面更紧凑了）
                 btnOK.Location = new Point(120, 380);
@@ -130,10 +129,10 @@ namespace MissionPlanner.Controls
             rbLandDrop = new RadioButton { Text = "高空抛投", AutoSize = true, Location = new Point(20, 335) };
             
             // 降落参数输入（移动到对应选项右侧）
-            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(220, 310) };
-            txtCargoTime = new TextBox { Location = new Point(300, 308), Size = new Size(60, 23), Text = "0" }; // 默认0，按键启动
-            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(220, 335) };
-            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "30" }; // 默认30
+            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(210, 310) };
+            txtCargoTime = new TextBox { Location = new Point(300, 308), Size = new Size(60, 23), Text = "0" }; // 默认5秒
+            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(210, 335) };
+            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "50" }; // 默认50米
             
             // 按钮
             btnOK = new Button { Text = "确定", Location = new Point(120, 380), Size = new Size(100, 30), DialogResult = DialogResult.OK };
@@ -151,6 +150,15 @@ namespace MissionPlanner.Controls
                 lblCargoTime, txtCargoTime, lblDropHeight, txtDropHeight,
                 btnOK, btnCancel 
             });
+            
+            // 在控件添加到窗体后绑定事件
+            rbPassThrough.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+            rbLandGround.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+            rbLandCargo.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+            rbLandDrop.CheckedChanged += (s, e) => UpdateLandingOptionsVisibility();
+            
+            // 初始化时设置默认锁定状态
+            UpdateLandingOptionsVisibility();
         }
 
         private void BtnOK_Click(object sender, EventArgs e)
@@ -160,13 +168,13 @@ namespace MissionPlanner.Controls
             if (!validateNumber(txtLLng, -180, 180, "目的地经度")) { this.DialogResult = DialogResult.None; return; }
             if (!validateNumber(txtLAlt, null, null, "目的地高度")) { this.DialogResult = DialogResult.None; return; }
 
-            // 验证降落参数
-            if (rbLandCargo.Checked && !validateNumber(txtCargoTime, 1, 300, "货物释放时间")) 
+            // 验证降落参数（只有在相应选项被选中且输入框可用时才验证）
+            if (rbLandCargo.Checked && txtCargoTime.Enabled && !validateNumber(txtCargoTime, 1, 300, "货物释放时间")) 
             { 
                 this.DialogResult = DialogResult.None; 
                 return; 
             }
-            if (rbLandDrop.Checked && !validateNumber(txtDropHeight, 10, 200, "抛投高度")) 
+            if (rbLandDrop.Checked && txtDropHeight.Enabled && !validateNumber(txtDropHeight, 10, 200, "抛投高度")) 
             { 
                 this.DialogResult = DialogResult.None; 
                 return; 
@@ -263,8 +271,45 @@ namespace MissionPlanner.Controls
         
         private void UpdateLandingOptionsVisibility()
         {
-            // 所有输入框始终显示，不需要控制可见性
-            // 保留此方法以防将来需要添加其他逻辑
+            // 确保控件已经初始化
+            if (txtCargoTime == null || txtDropHeight == null || 
+                rbPassThrough == null || rbLandGround == null || 
+                rbLandCargo == null || rbLandDrop == null)
+                return;
+                
+            // 根据选择的降落模式来锁定/解锁相应的输入控件
+            
+            // 等待时间输入框：只在选择"降落地面，释放货物后返航"时可用
+            if (rbLandCargo.Checked)
+            {
+                txtCargoTime.Enabled = true;
+                // txtCargoTime.BackColor = SystemColors.Window;
+                txtCargoTime.ReadOnly = false;
+            }
+            else
+            {
+                txtCargoTime.Enabled = false;
+                // txtCargoTime.BackColor = Color.FromArgb(220, 220, 220); // 锁定状态的灰色
+                txtCargoTime.ReadOnly = true;
+            }
+            
+            // 抛投高度输入框：只在选择"高空抛投"时可用
+            if (rbLandDrop.Checked)
+            {
+                txtDropHeight.Enabled = true;
+                // txtDropHeight.BackColor = SystemColors.Window;
+                txtDropHeight.ReadOnly = false;
+            }
+            else
+            {
+                txtDropHeight.Enabled = false;
+                // txtDropHeight.BackColor = Color.FromArgb(220, 220, 220); // 锁定状态的灰色
+                txtDropHeight.ReadOnly = true;
+            }
+            
+            // 强制刷新控件显示
+            txtCargoTime.Refresh();
+            txtDropHeight.Refresh();
         }
         
         private void UpdateTakeoffInfo()
