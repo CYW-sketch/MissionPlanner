@@ -583,8 +583,8 @@ namespace MissionPlanner.GCSViews
                             }
                             else
                             {
-                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Absolute; // TAKEOFF
-                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute; // WAYPOINT
+                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative; // WAYPOINT
                                 }
                             }
                             else
@@ -603,7 +603,7 @@ namespace MissionPlanner.GCSViews
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                     else
-                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 }
                                 // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
                                 AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
@@ -611,25 +611,37 @@ namespace MissionPlanner.GCSViews
                                 if (dlg.TerrainFollowing)
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                 else
-                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 // 根据降落模式生成DO_DIGICAM_CONFIGURE指令
                                 switch (dlg.SelectedLandingMode)
                                 {
                                     case RemoteTakeoffLandingForm.LandingMode.LandGround:
                                         // 降落地面，然后返航：高度0，等待时间0（按键机解锁）
-                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34, 1, 0, 0, null);
-                                    AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);                                    
+                                        {
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34, 1, 0, 0, null);
+                                            // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
+                                            Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
+                                        }
+                                        AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);                                    
                                         break;
                                         
                                     case RemoteTakeoffLandingForm.LandingMode.LandCargo:
                                         // 降落地面，释放货物后返航：高度0，等待时间为用户设置的时间（0=按键启动，>0=自动等待）
-                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 1, 0, 0, null);
+                                        {
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 1, 0, 0, null);
+                                            // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
+                                            Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
+                                        }
                                         AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);
                                         break;
                                         
                                     case RemoteTakeoffLandingForm.LandingMode.LandDrop:
                                         // 高空抛投：高度为用户设置的高度，等待时间0（按键机解锁）
-                                        AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 1, 0, 0, null);
+                                        {
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 1, 0, 0, null);
+                                            // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
+                                            Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
+                                        }
                                         AddCommand(MAVLink.MAV_CMD.LAND, dlg.DropHeight + 3, 0, 0, 1, 0, 0, 0, null);
                                         break;
                                 }
@@ -638,7 +650,7 @@ namespace MissionPlanner.GCSViews
                                 if (dlg.TerrainFollowing)
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                 else
-                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
 
                             }
                             else
@@ -651,14 +663,14 @@ namespace MissionPlanner.GCSViews
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                     else
-                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 }
                                 AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
                                 // 设置WAYPOINT的Frame模式
                                 if (dlg.TerrainFollowing)
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                 else
-                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                    Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                             }
 
                             
@@ -694,7 +706,7 @@ namespace MissionPlanner.GCSViews
                                             if (dlg.TerrainFollowing)
                                                 Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                             else
-                                                Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                                Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                         }
                                         AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
                         // 返航指令默认使用Absolute模式
@@ -788,6 +800,8 @@ namespace MissionPlanner.GCSViews
                 // 在LAND前插入 DO_DIGICAM_CONFIGURE（使用默认参数示例）
                 int insertCamCfgIndex = Commands.Rows.Count - 1; // 在最后一个点(当前为LAND)之前插入
                 int camCfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 3, 34, 1, 0, 0, null);
+                // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
+                Commands.Rows[camCfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                 MoveRowTo(camCfgRow, insertCamCfgIndex);
 
                 // 重新定位 LAND 行索引（因插入一行已后移）
@@ -893,6 +907,8 @@ namespace MissionPlanner.GCSViews
 
                 // 4) 在 LAND 之前插入 DO_DIGICAM_CONFIGURE（默认参数示例）
                 int camCfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 3, 34, 1, 0, 0, null);
+                // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
+                Commands.Rows[camCfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                 // 将其移动到最后一个 LAND 之前
                 // 重新计算 LAND 的索引（可能刚刚设置的是最后一行）
                 int landIndex = -1;

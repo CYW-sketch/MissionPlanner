@@ -110,13 +110,13 @@ namespace MissionPlanner.Controls
 
             // 仿地飞行选项（在目的地输入上方）
             chkTerrainFollowing = new CheckBox { Text = "启用仿地飞行", AutoSize = true, Location = new Point(20, 75), Checked = true };
-            var lblTerrainTip = new Label { Text = "※ 启用后使用Terrain模式，禁用则使用Absolute模式", AutoSize = true, Location = new Point(20, 95), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 8F) };
+            var lblTerrainTip = new Label { Text = "※ 启用后使用Terrain模式，禁用则使用Relative模式", AutoSize = true, Location = new Point(20, 95), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 8F) };
 
             // 目的地输入（用户需要输入的部分）
             var lblDestinationTitle = new Label { Text = "目的地", AutoSize = true, Location = new Point(20, 115), Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
             var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(20, 145) };
             var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(20, 175) };
-            var lblLALT = new Label { Text = "高度(米):", AutoSize = true, Location = new Point(20, 205) };
+            var lblLALT = new Label { Text = "飞行高度(米):", AutoSize = true, Location = new Point(20, 205) };
             txtLLat = new TextBox { Location = new Point(100, 143), Size = new Size(200, 23), Text = "0" };
             txtLLng = new TextBox { Location = new Point(100, 173), Size = new Size(200, 23), Text = "0" };
             txtLAlt = new TextBox { Location = new Point(100, 203), Size = new Size(200, 23), Text = "30" };
@@ -169,7 +169,8 @@ namespace MissionPlanner.Controls
             if (!validateNumber(txtLAlt, null, null, "目的地高度")) { this.DialogResult = DialogResult.None; return; }
 
             // 验证降落参数（只有在相应选项被选中且输入框可用时才验证）
-            if (rbLandCargo.Checked && txtCargoTime.Enabled && !validateNumber(txtCargoTime, 1, 300, "货物释放时间")) 
+            // 等待时间允许为0（0=按键解锁）
+            if (rbLandCargo.Checked && txtCargoTime.Enabled && !validateNumber(txtCargoTime, 0, 300, "货物释放时间")) 
             { 
                 this.DialogResult = DialogResult.None; 
                 return; 
@@ -199,8 +200,35 @@ namespace MissionPlanner.Controls
             CargoTime = rbLandCargo.Checked ? double.Parse(txtCargoTime.Text) : 0;
             DropHeight = rbLandDrop.Checked ? double.Parse(txtDropHeight.Text) : 0;
             SetAsHome = true; // 自动设置为Home点
-            TerrainFollowing = chkTerrainFollowing.Checked; // 设置仿地飞行选项
+            TerrainFollowing = chkTerrainFollowing.Checked; // 设置仿地飞行选项：true=Terrain模式，false=Relative模式
+            
+            // 设置Frame模式
+            // SetFrameMode();
         }
+        
+        // private void SetFrameMode()
+        // {
+        //     try
+        //     {
+        //         // 根据仿地飞行选项设置Frame模式
+        //         if (MainV2.instance?.FlightPlanner != null)
+        //         {
+        //             var flightPlanner = MainV2.instance.FlightPlanner;
+                    
+        //             if (TerrainFollowing)
+        //             {
+        //                 // 启用仿地飞行：使用Terrain模式
+        //                 flightPlanner.CMB_altmode.SelectedValue = (int)GCSViews.FlightPlanner.altmode.Terrain;
+        //             }
+        //             else
+        //             {
+        //                 // 不启用仿地飞行：使用Relative模式
+        //                 flightPlanner.CMB_altmode.SelectedValue = (int)GCSViews.FlightPlanner.altmode.Relative;
+        //             }
+        //         }
+        //     }
+        //     catch { }
+        // }
 
         private bool validateNumber(TextBox tb, double? min, double? max, string name)
         {
@@ -215,18 +243,44 @@ namespace MissionPlanner.Controls
         {
             try
             {
-                // 获取上一个航点的坐标作为目的地默认值
+                // 获取上一个有效航点的坐标作为目的地默认值
                 if (MainV2.comPort?.MAV?.wps != null)
                 {
                     var waypoints = MainV2.comPort.MAV.wps;
                     
                     if (waypoints != null && waypoints.Count > 0)
                     {
-                        // 获取最后一个航点
-                        var lastWaypoint = waypoints[waypoints.Count - 1];
-                        txtLLat.Text = (lastWaypoint.x / 1e7).ToString("F6");
-                        txtLLng.Text = (lastWaypoint.y / 1e7).ToString("F6");
-                        txtLAlt.Text = (lastWaypoint.z / 100).ToString("0");
+                        bool foundValid = false;
+                        for (int i = waypoints.Count - 1; i >= 0; i--)
+                        {
+                            var wp = waypoints[i];
+                            // 自适应单位：
+                            // - 如果值很大，认为是E7或厘米单位；否则直接当作度/米
+                            double lat = Math.Abs(wp.x) > 1000 ? wp.x / 1e7 : wp.x;
+                            double lng = Math.Abs(wp.y) > 1000 ? wp.y / 1e7 : wp.y;
+                            double alt = wp.z > 1000 ? wp.z / 100 : wp.z;
+                            bool latValid = lat >= -90 && lat <= 90 && Math.Abs(lat) > 1e-6;
+                            bool lngValid = lng >= -180 && lng <= 180 && Math.Abs(lng) > 1e-6;
+                            if (latValid && lngValid)
+                            {
+                                txtLLat.Text = lat.ToString("F6");
+                                txtLLng.Text = lng.ToString("F6");
+                                txtLAlt.Text = (Math.Abs(alt) > 1e-6 ? alt : 30).ToString("0");
+                                foundValid = true;
+                                break;
+                            }
+                        }
+                        if (!foundValid)
+                        {
+                            // 无有效航点，经纬度可能为0，退回地图中心
+                            if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                            {
+                                var map = MainV2.instance.FlightPlanner.MainMap;
+                                txtLLat.Text = map.Position.Lat.ToString("F6");
+                                txtLLng.Text = map.Position.Lng.ToString("F6");
+                                txtLAlt.Text = "30";
+                            }
+                        }
                     }
                     else
                     {
