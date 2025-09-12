@@ -117,22 +117,22 @@ namespace MissionPlanner.Controls
             var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(20, 145) };
             var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(20, 175) };
             var lblLALT = new Label { Text = "飞行高度(米):", AutoSize = true, Location = new Point(20, 205) };
-            txtLLat = new TextBox { Location = new Point(100, 143), Size = new Size(200, 23), Text = "0" };
-            txtLLng = new TextBox { Location = new Point(100, 173), Size = new Size(200, 23), Text = "0" };
-            txtLAlt = new TextBox { Location = new Point(100, 203), Size = new Size(200, 23), Text = "30" };
+            txtLLat = new TextBox { Location = new Point(120, 143), Size = new Size(200, 23), Text = "0" };
+            txtLLng = new TextBox { Location = new Point(120, 173), Size = new Size(200, 23), Text = "0" };
+            txtLAlt = new TextBox { Location = new Point(120, 203), Size = new Size(200, 23), Text = "30" };
 
             // 飞行模式选项
             var lblOptions = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(20, 235), Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
             rbPassThrough = new RadioButton { Text = "经过航点（不降落）", AutoSize = true, Location = new Point(20, 260), Checked = true };
-            rbLandGround = new RadioButton { Text = "降落地面，然后返航", AutoSize = true, Location = new Point(20, 285) };
-            rbLandCargo = new RadioButton { Text = "降落地面，释放货物后返航", AutoSize = true, Location = new Point(20, 310) };
-            rbLandDrop = new RadioButton { Text = "高空抛投", AutoSize = true, Location = new Point(20, 335) };
+            rbLandGround = new RadioButton { Text = "降落地面，按键返航(等待时间0为按键返航)", AutoSize = true, Location = new Point(20, 285) };
+            rbLandCargo = new RadioButton { Text = "降落地面，释放货物____秒后返航", AutoSize = true, Location = new Point(20, 310) };
+            rbLandDrop = new RadioButton { Text = "高空抛投(需填写抛投高度)", AutoSize = true, Location = new Point(20, 335) };
             
             // 降落参数输入（移动到对应选项右侧）
-            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(210, 310) };
-            txtCargoTime = new TextBox { Location = new Point(300, 308), Size = new Size(60, 23), Text = "0" }; // 默认5秒
-            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(210, 335) };
-            txtDropHeight = new TextBox { Location = new Point(300, 333), Size = new Size(60, 23), Text = "30" }; // 默认50米
+            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(250, 310) };
+            txtCargoTime = new TextBox { Location = new Point(340, 310), Size = new Size(60, 23), Text = "5" }; // 默认5秒
+            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(250, 335) };
+            txtDropHeight = new TextBox { Location = new Point(340, 335), Size = new Size(60, 23), Text = "30" }; // 默认30米
             
             // 按钮
             btnOK = new Button { Text = "确定", Location = new Point(120, 380), Size = new Size(100, 30), DialogResult = DialogResult.OK };

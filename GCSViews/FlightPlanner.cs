@@ -618,7 +618,7 @@ namespace MissionPlanner.GCSViews
                                     case RemoteTakeoffLandingForm.LandingMode.LandGround:
                                         // 降落地面，然后返航：高度0，等待时间0（按键机解锁）
                                         {
-                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34, 1, 0, 0, null);
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34,0, 1, 0, null);
                                             // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
                                             Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                                         }
@@ -628,7 +628,7 @@ namespace MissionPlanner.GCSViews
                                     case RemoteTakeoffLandingForm.LandingMode.LandCargo:
                                         // 降落地面，释放货物后返航：高度0，等待时间为用户设置的时间（0=按键启动，>0=自动等待）
                                         {
-                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 1, 0, 0, null);
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 0, 1, 0, null);
                                             // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
                                             Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                                         }
@@ -638,7 +638,7 @@ namespace MissionPlanner.GCSViews
                                     case RemoteTakeoffLandingForm.LandingMode.LandDrop:
                                         // 高空抛投：高度为用户设置的高度，等待时间0（按键机解锁）
                                         {
-                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 1, 0, 0, null);
+                                            int cfgRow = AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 0, 1, 0, null);
                                             // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
                                             Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                                         }
