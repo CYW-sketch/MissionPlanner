@@ -213,7 +213,7 @@ namespace MissionPlanner.Controls
             WriteWaypoints = chkWriteWaypoints.Checked; // 设置是否写入航点
             
             // 注意：航点写入功能将在异地起降弹窗关闭后，在FlightPlanner中执行
-            // 这里只设置标志，不立即执行写入操作
+            // 这里只设置标志，不立即执行写入操作，避免重复执行
             
             // 设置Frame模式
             // SetFrameMode();
@@ -430,8 +430,27 @@ namespace MissionPlanner.Controls
                     return;
                 }
                 
-                // 显示调试信息
-                MessageBox.Show($"准备写入航点，当前航点数量：{flightPlanner.Commands.Rows.Count}", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // 显示进度信息（简化版）
+                var progressForm = new Form()
+                {
+                    Text = "正在写入航点...",
+                    Size = new Size(300, 100),
+                    StartPosition = FormStartPosition.CenterParent,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    MaximizeBox = false,
+                    MinimizeBox = false
+                };
+                
+                var progressLabel = new Label()
+                {
+                    Text = "正在写入航点到飞行器...",
+                    Location = new Point(20, 20),
+                    Size = new Size(250, 20)
+                };
+                
+                progressForm.Controls.Add(progressLabel);
+                progressForm.Show();
+                progressForm.Refresh();
                 
                 // 写入航点到飞行器
                 flightPlanner.BUT_write_Click(null, null);
@@ -442,20 +461,28 @@ namespace MissionPlanner.Controls
                 // 再次检查连接状态
                 if (!IsConnected())
                 {
+                    progressForm.Close();
                     MessageBox.Show("写入过程中连接断开。", "连接错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 
+                // 更新进度信息
+                progressLabel.Text = "正在读取航点列表...";
+                progressForm.Refresh();
+                
                 // 读取航点列表
                 flightPlanner.BUT_read_Click(null, null);
                 
-                // 显示完成信息
-                MessageBox.Show("航点写入和读取操作已完成。", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // 关闭进度窗口
+                progressForm.Close();
+                
+                // 显示完成信息（简化版）
+                MessageBox.Show($"航点写入和读取操作已完成。\n共处理 {flightPlanner.Commands.Rows.Count} 个航点。", "操作完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"写入航点时发生错误：{ex.Message}\n\n堆栈跟踪：{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"写入航点时发生错误：{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

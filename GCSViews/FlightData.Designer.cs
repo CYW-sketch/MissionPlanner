@@ -71,6 +71,13 @@ namespace MissionPlanner.GCSViews
             this.CMB_modes = new System.Windows.Forms.ComboBox();
             this.BUT_quickauto = new MissionPlanner.Controls.MyButton();
             this.BUT_setmode = new MissionPlanner.Controls.MyButton();
+            this.tabPageWaypoints = new System.Windows.Forms.TabPage();
+            this.panelWaypointControls = new System.Windows.Forms.Panel();
+            this.btnAddWaypoint = new MissionPlanner.Controls.MyButton();
+            this.btnDeleteWaypoint = new MissionPlanner.Controls.MyButton();
+            this.btnRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton();
+            this.btnSetAsRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton();
+            this.btnStartDelivery = new MissionPlanner.Controls.MyButton();
             this.tabPagemessages = new System.Windows.Forms.TabPage();
             this.txt_messagebox = new System.Windows.Forms.TextBox();
             this.tabActionsSimple = new System.Windows.Forms.TabPage();
@@ -593,6 +600,7 @@ namespace MissionPlanner.GCSViews
             this.tabControlactions.ContextMenuStrip = this.contextMenuStripactionstab;
             this.tabControlactions.Controls.Add(this.tabQuick);
             this.tabControlactions.Controls.Add(this.tabActions);
+            this.tabControlactions.Controls.Add(this.tabPageWaypoints);
             this.tabControlactions.Controls.Add(this.tabPagemessages);
             this.tabControlactions.Controls.Add(this.tabActionsSimple);
             this.tabControlactions.Controls.Add(this.tabPagePreFlight);
@@ -1079,6 +1087,58 @@ namespace MissionPlanner.GCSViews
             this.toolTip1.SetToolTip(this.BUT_setmode, resources.GetString("BUT_setmode.ToolTip"));
             this.BUT_setmode.UseVisualStyleBackColor = true;
             this.BUT_setmode.Click += new System.EventHandler(this.BUT_setmode_Click);
+            // 
+            // tabPageWaypoints
+            // 
+            this.tabPageWaypoints.Controls.Add(this.panelWaypointControls);
+            resources.ApplyResources(this.tabPageWaypoints, "tabPageWaypoints");
+            this.tabPageWaypoints.Name = "tabPageWaypoints";
+            this.tabPageWaypoints.UseVisualStyleBackColor = true;
+            // 
+            // panelWaypointControls
+            // 
+            this.panelWaypointControls.Controls.Add(this.btnAddWaypoint);
+            this.panelWaypointControls.Controls.Add(this.btnDeleteWaypoint);
+            this.panelWaypointControls.Controls.Add(this.btnRemoteTakeoffLanding);
+            this.panelWaypointControls.Controls.Add(this.btnSetAsRemoteTakeoffLanding);
+            this.panelWaypointControls.Controls.Add(this.btnStartDelivery);
+            resources.ApplyResources(this.panelWaypointControls, "panelWaypointControls");
+            this.panelWaypointControls.Name = "panelWaypointControls";
+            // 
+            // btnAddWaypoint
+            // 
+            resources.ApplyResources(this.btnAddWaypoint, "btnAddWaypoint");
+            this.btnAddWaypoint.Name = "btnAddWaypoint";
+            this.btnAddWaypoint.UseVisualStyleBackColor = true;
+            this.btnAddWaypoint.Click += new System.EventHandler(this.btnAddWaypoint_Click);
+            // 
+            // btnDeleteWaypoint
+            // 
+            resources.ApplyResources(this.btnDeleteWaypoint, "btnDeleteWaypoint");
+            this.btnDeleteWaypoint.Name = "btnDeleteWaypoint";
+            this.btnDeleteWaypoint.UseVisualStyleBackColor = true;
+            this.btnDeleteWaypoint.Click += new System.EventHandler(this.btnDeleteWaypoint_Click);
+            // 
+            // btnRemoteTakeoffLanding
+            // 
+            resources.ApplyResources(this.btnRemoteTakeoffLanding, "btnRemoteTakeoffLanding");
+            this.btnRemoteTakeoffLanding.Name = "btnRemoteTakeoffLanding";
+            this.btnRemoteTakeoffLanding.UseVisualStyleBackColor = true;
+            this.btnRemoteTakeoffLanding.Click += new System.EventHandler(this.btnRemoteTakeoffLanding_Click);
+            // 
+            // btnSetAsRemoteTakeoffLanding
+            // 
+            resources.ApplyResources(this.btnSetAsRemoteTakeoffLanding, "btnSetAsRemoteTakeoffLanding");
+            this.btnSetAsRemoteTakeoffLanding.Name = "btnSetAsRemoteTakeoffLanding";
+            this.btnSetAsRemoteTakeoffLanding.UseVisualStyleBackColor = true;
+            this.btnSetAsRemoteTakeoffLanding.Click += new System.EventHandler(this.btnSetAsRemoteTakeoffLanding_Click);
+            // 
+            // btnStartDelivery
+            // 
+            resources.ApplyResources(this.btnStartDelivery, "btnStartDelivery");
+            this.btnStartDelivery.Name = "btnStartDelivery";
+            this.btnStartDelivery.UseVisualStyleBackColor = true;
+            this.btnStartDelivery.Click += new System.EventHandler(this.btnStartDelivery_Click);
             // 
             // tabPagemessages
             // 
@@ -3100,6 +3160,13 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton but_bintolog;
         private Controls.MyButton but_dflogtokml;
         private Controls.MyButton BUT_DFMavlink;
+        public System.Windows.Forms.TabPage tabPageWaypoints;
+        private System.Windows.Forms.Panel panelWaypointControls;
+        private Controls.MyButton btnAddWaypoint;
+        private Controls.MyButton btnDeleteWaypoint;
+        private Controls.MyButton btnRemoteTakeoffLanding;
+        private Controls.MyButton btnSetAsRemoteTakeoffLanding;
+        private Controls.MyButton btnStartDelivery;
         public System.Windows.Forms.TabPage tabPagemessages;
         private System.Windows.Forms.TextBox txt_messagebox;
         private System.Windows.Forms.Timer Messagetabtimer;

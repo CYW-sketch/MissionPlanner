@@ -1425,6 +1425,174 @@
   <data name="&gt;&gt;txt_messagebox.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
+  <data name="tabPageWaypoints.Location" type="System.Drawing.Point, System.Drawing">
+    <value>4, 44</value>
+  </data>
+  <data name="tabPageWaypoints.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>3, 3, 3, 3</value>
+  </data>
+  <data name="tabPageWaypoints.Size" type="System.Drawing.Size, System.Drawing">
+    <value>290, 175</value>
+  </data>
+  <data name="tabPageWaypoints.TabIndex" type="System.Int32, mscorlib">
+    <value>7</value>
+  </data>
+  <data name="tabPageWaypoints.Text" xml:space="preserve">
+    <value>航点管理</value>
+  </data>
+  <data name="&gt;&gt;tabPageWaypoints.Name" xml:space="preserve">
+    <value>tabPageWaypoints</value>
+  </data>
+  <data name="&gt;&gt;tabPageWaypoints.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;tabPageWaypoints.Parent" xml:space="preserve">
+    <value>tabControlactions</value>
+  </data>
+  <data name="&gt;&gt;tabPageWaypoints.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="panelWaypointControls.Location" type="System.Drawing.Point, System.Drawing">
+    <value>3, 3</value>
+  </data>
+  <data name="panelWaypointControls.Size" type="System.Drawing.Size, System.Drawing">
+    <value>284, 169</value>
+  </data>
+  <data name="panelWaypointControls.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="&gt;&gt;panelWaypointControls.Name" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;panelWaypointControls.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Panel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;panelWaypointControls.Parent" xml:space="preserve">
+    <value>tabPageWaypoints</value>
+  </data>
+  <data name="&gt;&gt;panelWaypointControls.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="btnAddWaypoint.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 10</value>
+  </data>
+  <data name="btnAddWaypoint.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 30</value>
+  </data>
+  <data name="btnAddWaypoint.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="btnAddWaypoint.Text" xml:space="preserve">
+    <value>增加航点</value>
+  </data>
+  <data name="&gt;&gt;btnAddWaypoint.Name" xml:space="preserve">
+    <value>btnAddWaypoint</value>
+  </data>
+  <data name="&gt;&gt;btnAddWaypoint.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;btnAddWaypoint.Parent" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;btnAddWaypoint.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="btnDeleteWaypoint.Location" type="System.Drawing.Point, System.Drawing">
+    <value>120, 10</value>
+  </data>
+  <data name="btnDeleteWaypoint.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 30</value>
+  </data>
+  <data name="btnDeleteWaypoint.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="btnDeleteWaypoint.Text" xml:space="preserve">
+    <value>删除航点</value>
+  </data>
+  <data name="&gt;&gt;btnDeleteWaypoint.Name" xml:space="preserve">
+    <value>btnDeleteWaypoint</value>
+  </data>
+  <data name="&gt;&gt;btnDeleteWaypoint.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;btnDeleteWaypoint.Parent" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;btnDeleteWaypoint.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="btnRemoteTakeoffLanding.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 50</value>
+  </data>
+  <data name="btnRemoteTakeoffLanding.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 30</value>
+  </data>
+  <data name="btnRemoteTakeoffLanding.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="btnRemoteTakeoffLanding.Text" xml:space="preserve">
+    <value>异地起降</value>
+  </data>
+  <data name="&gt;&gt;btnRemoteTakeoffLanding.Name" xml:space="preserve">
+    <value>btnRemoteTakeoffLanding</value>
+  </data>
+  <data name="&gt;&gt;btnRemoteTakeoffLanding.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;btnRemoteTakeoffLanding.Parent" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;btnRemoteTakeoffLanding.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="btnSetAsRemoteTakeoffLanding.Location" type="System.Drawing.Point, System.Drawing">
+    <value>120, 50</value>
+  </data>
+  <data name="btnSetAsRemoteTakeoffLanding.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 30</value>
+  </data>
+  <data name="btnSetAsRemoteTakeoffLanding.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="btnSetAsRemoteTakeoffLanding.Text" xml:space="preserve">
+    <value>设置为异地起降</value>
+  </data>
+  <data name="&gt;&gt;btnSetAsRemoteTakeoffLanding.Name" xml:space="preserve">
+    <value>btnSetAsRemoteTakeoffLanding</value>
+  </data>
+  <data name="&gt;&gt;btnSetAsRemoteTakeoffLanding.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;btnSetAsRemoteTakeoffLanding.Parent" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;btnSetAsRemoteTakeoffLanding.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="btnStartDelivery.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 90</value>
+  </data>
+  <data name="btnStartDelivery.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 30</value>
+  </data>
+  <data name="btnStartDelivery.TabIndex" type="System.Int32, mscorlib">
+    <value>4</value>
+  </data>
+  <data name="btnStartDelivery.Text" xml:space="preserve">
+    <value>开始送货</value>
+  </data>
+  <data name="&gt;&gt;btnStartDelivery.Name" xml:space="preserve">
+    <value>btnStartDelivery</value>
+  </data>
+  <data name="&gt;&gt;btnStartDelivery.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;btnStartDelivery.Parent" xml:space="preserve">
+    <value>panelWaypointControls</value>
+  </data>
+  <data name="&gt;&gt;btnStartDelivery.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
   <data name="tabPagemessages.Location" type="System.Drawing.Point, System.Drawing">
     <value>4, 44</value>
   </data>
@@ -1435,7 +1603,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabPagemessages.TabIndex" type="System.Int32, mscorlib">
-    <value>8</value>
+    <value>9</value>
   </data>
   <data name="tabPagemessages.Text" xml:space="preserve">
     <value>Messages</value>

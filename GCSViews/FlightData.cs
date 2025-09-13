@@ -6655,5 +6655,322 @@ namespace MissionPlanner.GCSViews
             // Pass `this` to keep the pop-out always on top
             form.Show(this);
         }
+
+        #region 航点管理功能
+
+        private void btnAddWaypoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 检查是否有飞行计划器实例
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    CustomMessageBox.Show("飞行计划器未初始化，无法添加航点。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 获取当前地图中心位置
+                var mapCenter = gMapControl1.Position;
+                if (mapCenter.IsEmpty)
+                {
+                    CustomMessageBox.Show("无法获取地图位置，请确保地图已正确加载。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 调用飞行计划器的添加航点功能
+                MainV2.instance.FlightPlanner.AddWaypointAt(mapCenter.Lat, mapCenter.Lng, 30);
+                
+                CustomMessageBox.Show($"已在地图中心位置添加航点：\n纬度: {mapCenter.Lat:F6}\n经度: {mapCenter.Lng:F6}\n高度: 30米", 
+                    "添加航点成功", CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("添加航点时发生错误: " + ex.Message, "错误", 
+                    CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnDeleteWaypoint_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 检查是否有飞行计划器实例
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    CustomMessageBox.Show("飞行计划器未初始化，无法删除航点。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 检查是否有航点可删除
+                if (MainV2.instance.FlightPlanner.Commands.Rows.Count == 0)
+                {
+                    CustomMessageBox.Show("当前没有航点可删除。", "提示", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                    return;
+                }
+
+                // 确认删除操作
+                var result = CustomMessageBox.Show("确定要删除最后一个航点吗？", "确认删除", 
+                    CustomMessageBox.MessageBoxButtons.YesNo, CustomMessageBox.MessageBoxIcon.Question);
+
+                if (result == CustomMessageBox.DialogResult.Yes)
+                {
+                    // 删除最后一个航点
+                    MainV2.instance.FlightPlanner.Commands.Rows.RemoveAt(MainV2.instance.FlightPlanner.Commands.Rows.Count - 1);
+                    MainV2.instance.FlightPlanner.writeKML();
+                    
+                    CustomMessageBox.Show("航点删除成功。", "删除成功", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("删除航点时发生错误: " + ex.Message, "错误", 
+                    CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnRemoteTakeoffLanding_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 检查是否有飞行计划器实例
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    CustomMessageBox.Show("飞行计划器未初始化，无法使用异地起降功能。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 强制初始化地图控件（如果还没有初始化）
+                ForceInitializeMap();
+
+                // 获取当前地图位置作为默认起飞点，优先使用飞行计划界面的地图位置
+                double lat = 0, lng = 0, alt = 30;
+                bool hasValidPosition = false;
+
+                // 方案1：优先使用FlightPlanner的地图位置（最可靠）
+                if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                {
+                    var fpMapCenter = MainV2.instance.FlightPlanner.MainMap.Position;
+                    if (!fpMapCenter.IsEmpty && Math.Abs(fpMapCenter.Lat) > 0.001 && Math.Abs(fpMapCenter.Lng) > 0.001)
+                    {
+                        lat = fpMapCenter.Lat;
+                        lng = fpMapCenter.Lng;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案2：从FlightData地图控件获取位置
+                    var mapCenter = gMapControl1.Position;
+                    if (!mapCenter.IsEmpty && Math.Abs(mapCenter.Lat) > 0.001 && Math.Abs(mapCenter.Lng) > 0.001)
+                    {
+                        lat = mapCenter.Lat;
+                        lng = mapCenter.Lng;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案3：从MAV数据获取当前位置
+                    if (MainV2.comPort?.MAV?.cs != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.lat;
+                        lng = MainV2.comPort.MAV.cs.lng;
+                        alt = MainV2.comPort.MAV.cs.altasl;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案4：从Home位置获取
+                    if (MainV2.comPort?.MAV?.cs?.HomeLocation != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.HomeLocation.Lat;
+                        lng = MainV2.comPort.MAV.cs.HomeLocation.Lng;
+                        alt = MainV2.comPort.MAV.cs.HomeLocation.Alt;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案5：从设置中获取上次保存的位置
+                    double savedLat = Settings.Instance.GetDouble("maplast_lat");
+                    double savedLng = Settings.Instance.GetDouble("maplast_lng");
+                    if (Math.Abs(savedLat) > 0.001 && Math.Abs(savedLng) > 0.001)
+                    {
+                        lat = savedLat;
+                        lng = savedLng;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    CustomMessageBox.Show("无法获取当前位置信息。\n\n请确保：\n1. 地图已正确加载\n2. 设备已连接并获取到GPS位置\n3. 已设置Home位置\n\n或者您可以先在地图上点击设置一个位置。", "无法获取位置", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 直接调用RemoteTakeoffLandingForm，传递获取到的位置信息
+                using (var dlg = new Controls.RemoteTakeoffLandingForm(lat, lng, alt))
+                {
+                    if (dlg.ShowDialog() == DialogResult.OK)
+                    {
+                        // 调用飞行计划器的异地起降功能，传递对话框结果
+                        MainV2.instance.FlightPlanner.ProcessRemoteTakeoffLanding(dlg);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("启动异地起降功能时发生错误: " + ex.Message, "错误", 
+                    CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 强制初始化地图控件
+        /// </summary>
+        private void ForceInitializeMap()
+        {
+            try
+            {
+                // 如果地图控件还没有初始化，强制初始化
+                if (gMapControl1.MapProvider == null || gMapControl1.Position.IsEmpty)
+                {
+                    // 设置默认地图提供者
+                    if (gMapControl1.MapProvider == null)
+                    {
+                        gMapControl1.MapProvider = GMap.NET.MapProviders.GMapProviders.GoogleMap;
+                    }
+
+                    // 设置默认位置（从设置中获取或使用默认值）
+                    double defaultLat = Settings.Instance.GetDouble("maplast_lat", 0);
+                    double defaultLng = Settings.Instance.GetDouble("maplast_lng", 0);
+                    
+                    if (Math.Abs(defaultLat) < 0.001 || Math.Abs(defaultLng) < 0.001)
+                    {
+                        // 如果没有保存的位置，使用默认位置（北京）
+                        defaultLat = 39.9042;
+                        defaultLng = 116.4074;
+                    }
+
+                    gMapControl1.Position = new GMap.NET.PointLatLng(defaultLat, defaultLng);
+                    gMapControl1.Zoom = Settings.Instance.GetInt32("maplast_zoom", 10);
+                    
+                    // 强制刷新地图
+                    gMapControl1.Refresh();
+                }
+            }
+            catch (Exception ex)
+            {
+                // 如果初始化失败，记录错误但不阻止功能继续
+                log.Error("地图初始化失败: " + ex.Message);
+            }
+        }
+
+        private void btnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 检查是否有飞行计划器实例
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    CustomMessageBox.Show("飞行计划器未初始化，无法设置异地起降模式。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 调用飞行计划器的设置异地起降功能
+                MainV2.instance.FlightPlanner.BtnSetAsRemoteTakeoffLanding_Click(sender, e);
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("设置异地起降模式时发生错误: " + ex.Message, "错误", 
+                    CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnStartDelivery_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 检查连接状态
+                if (!MainV2.comPort.BaseStream.IsOpen)
+                {
+                    CustomMessageBox.Show("设备未连接，无法开始送货。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 检查是否有飞行计划器实例和航点
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    CustomMessageBox.Show("飞行计划器未初始化，无法开始送货。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (MainV2.instance.FlightPlanner.Commands.Rows.Count == 0)
+                {
+                    CustomMessageBox.Show("当前没有航点任务，无法开始送货。\n请先添加航点或设置异地起降。", "提示", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                    return;
+                }
+
+                // 确认开始送货
+                var result = CustomMessageBox.Show("确定要开始送货任务吗？\n\n这将启动自动飞行模式并开始执行航点任务。", "确认开始送货", 
+                    CustomMessageBox.MessageBoxButtons.YesNo, CustomMessageBox.MessageBoxIcon.Question);
+
+                if (result == CustomMessageBox.DialogResult.Yes)
+                {
+                    // 禁用按钮防止重复点击
+                    btnStartDelivery.Enabled = false;
+                    
+                    try
+                    {
+                        // 设置飞行模式为自动模式
+                        MainV2.comPort.setMode("Auto");
+                        
+                        // 等待模式切换完成
+                        Thread.Sleep(1000);
+                        
+                        // 启动任务执行
+                        MainV2.comPort.doCommand(MAVLink.MAV_CMD.MISSION_START, 0, 0, 0, 0, 0, 0, 0);
+                        
+                        CustomMessageBox.Show("送货任务已启动！\n\n飞行器将按照设定的航点自动执行送货任务。", "任务启动成功", 
+                            CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                    }
+                    finally
+                    {
+                        // 重新启用按钮
+                        btnStartDelivery.Enabled = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 确保按钮重新启用
+                btnStartDelivery.Enabled = true;
+                
+                CustomMessageBox.Show("启动送货任务时发生错误: " + ex.Message, "错误", 
+                    CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
     }
 }

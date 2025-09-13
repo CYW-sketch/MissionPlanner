@@ -369,7 +369,7 @@ namespace MissionPlanner.GCSViews
         }
 
         //设置为异地起降按钮点击事件
-        private void BtnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
+        public void BtnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
             try
             {
@@ -429,7 +429,7 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void BtnRemoteTakeoffLanding_Click(object sender, EventArgs e)
+        public void BtnRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
             try
             {
@@ -1569,6 +1569,170 @@ namespace MissionPlanner.GCSViews
             writeKML();
 
             return selectedrow;
+        }
+
+        /// <summary>
+        /// 在指定位置添加航点
+        /// </summary>
+        /// <param name="lat">纬度</param>
+        /// <param name="lng">经度</param>
+        /// <param name="alt">高度（米）</param>
+        /// <returns>添加的航点行索引</returns>
+        public int AddWaypointAt(double lat, double lng, double alt)
+        {
+            return AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, lng, lat, alt, null);
+        }
+
+        /// <summary>
+        /// 处理异地起降对话框的结果
+        /// </summary>
+        /// <param name="dlg">异地起降对话框</param>
+        public void ProcessRemoteTakeoffLanding(Controls.RemoteTakeoffLandingForm dlg)
+        {
+            try
+            {
+                // 异地起降航点会通过后续的航点生成逻辑自动创建，不需要额外的固定标记
+
+                // 在现有航点末尾追加异地起降段（首次设置时：将起点设为Home并在其前加入TAKEOFF）
+                updateUndoBuffer(true);
+                // 如果末尾已有 RTL，先移除，避免重复
+                try
+                {
+                    if (Commands.Rows.Count > 0)
+                    {
+                        int lastIdx = Commands.Rows.Count - 1;
+                        var lastCmd = Commands.Rows[lastIdx].Cells[Command.Index].Value?.ToString();
+                        if (lastCmd == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString())
+                        {
+                            Commands.Rows.RemoveAt(lastIdx);
+                        }
+                    }
+                }
+                catch { }
+
+                bool isFirst = Commands.Rows.Count == 0;
+                bool needTakeoffBeforeThisSegment = isFirst;
+
+                // 首次设置时：将起点设为Home并在其前加入TAKEOFF
+                if (isFirst)
+                {
+                    // 设置Home位置（通过设置文本框值）
+                    TXT_homelat.Text = dlg.TakeoffLat.ToString();
+                    TXT_homelng.Text = dlg.TakeoffLng.ToString();
+                    TXT_homealt.Text = dlg.TakeoffAlt.ToString();
+                    
+                    // 添加TAKEOFF指令
+                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.TakeoffAlt, null);
+                    // 添加起点WAYPOINT
+                    AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                }
+                else
+                {
+                    // 非首次：检查是否需要添加TAKEOFF
+                    bool hasTakeoff = false;
+                    for (int i = 0; i < Commands.Rows.Count; i++)
+                    {
+                        var row = Commands.Rows[i];
+                        if (row.IsNewRow) continue;
+                        var cmd = row.Cells[Command.Index].Value?.ToString();
+                        if (cmd == MAVLink.MAV_CMD.TAKEOFF.ToString())
+                        {
+                            hasTakeoff = true;
+                            break;
+                        }
+                    }
+                    if (!hasTakeoff)
+                    {
+                        needTakeoffBeforeThisSegment = true;
+                        AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.TakeoffAlt, null);
+                    }
+                }
+
+                // 根据降落模式生成相应的航点序列
+                switch (dlg.SelectedLandingMode)
+                {
+                    case RemoteTakeoffLandingForm.LandingMode.PassThrough:
+                        // 经过航点（不降落）：直接添加WAYPOINT
+                        AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                        break;
+
+                    case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                    case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                    case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                        // 需要降落的模式：添加WAYPOINT + DO_DIGICAM_CONFIGURE + LAND
+                        AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                        
+                        // 根据降落模式生成DO_DIGICAM_CONFIGURE指令
+                        switch (dlg.SelectedLandingMode)
+                        {
+                            case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                                AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, 0, 34, 0, 1, 0, null);
+                                break;
+                            case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                                AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, 0, dlg.CargoTime, 34, 0, 1, 0, null);
+                                break;
+                            case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                                AddCommand(MAVLink.MAV_CMD.DO_DIGICAM_CONFIGURE, 98, dlg.DropHeight, 0, 34, 0, 1, 0, null);
+                                break;
+                        }
+                        
+                        AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);
+                        break;
+                }
+
+                // 添加返航指令
+                AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
+
+                // 更新地图显示
+                writeKML();
+
+                // 显示成功消息
+                string mode;
+                switch (dlg.SelectedLandingMode)
+                {
+                    case RemoteTakeoffLandingForm.LandingMode.PassThrough:
+                        mode = "经过";
+                        break;
+                    case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                        mode = "降落地面";
+                        break;
+                    case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                        mode = "降落地面+释放货物";
+                        break;
+                    case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                        mode = "高空抛投";
+                        break;
+                    default:
+                        mode = "未知";
+                        break;
+                }
+
+                string sequence;
+                switch (dlg.SelectedLandingMode)
+                {
+                    case RemoteTakeoffLandingForm.LandingMode.PassThrough:
+                        sequence = ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}终点WAYPOINT(30m)");
+                        break;
+                    default:
+                        sequence = ($"{(isFirst ? "TAKEOFF → 起点WAYPOINT → " : (needTakeoffBeforeThisSegment ? "TAKEOFF → " : ""))}终点WAYPOINT(30m) → DO_DIGICAM_CONFIGURE → LAND");
+                        break;
+                }
+
+                sequence += " → RETURN_TO_LAUNCH";
+
+                CustomMessageBox.Show($"异地起降任务已添加！\n\n模式: {mode}\n序列: {sequence}\n\n起飞点: {dlg.TakeoffLat:F6}, {dlg.TakeoffLng:F6}\n降落点: {dlg.LandLat:F6}, {dlg.LandLng:F6}", 
+                    "异地起降设置成功", CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                
+                // 如果用户勾选了自动写入航点，则执行写入和读取操作
+                if (dlg.WriteWaypoints)
+                {
+                    WriteAndReadWaypointsAfterRemoteTakeoffLanding();
+                }
+            }
+            catch (Exception ex)
+            {
+                CustomMessageBox.Show("处理异地起降设置时发生错误: " + ex.Message, "错误");
+            }
         }
 
         // 将现有行移动到目标索引，保持单一选择并避免新行干扰
@@ -9379,9 +9543,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     return;
                 }
                 
-                // 显示调试信息
-                MessageBox.Show($"准备写入航点，当前航点数量：{Commands.Rows.Count}", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
+                // 静默执行写入和读取操作，不显示调试信息
                 // 写入航点到飞行器
                 BUT_write_Click(null, null);
                 
@@ -9398,13 +9560,12 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 // 读取航点列表
                 BUT_read_Click(null, null);
                 
-                // 显示完成信息
-                MessageBox.Show("航点写入和读取操作已完成。", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // 静默完成，不显示调试信息
                 
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"写入航点时发生错误：{ex.Message}\n\n堆栈跟踪：{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"写入航点时发生错误：{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
