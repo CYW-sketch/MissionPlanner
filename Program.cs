@@ -200,7 +200,7 @@ namespace MissionPlanner
                 return;
             }
 
-            name = "Mission Planner";
+            name = "梵亚地面站";
 
             try
             {
