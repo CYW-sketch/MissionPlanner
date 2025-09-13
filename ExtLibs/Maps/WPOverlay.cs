@@ -37,6 +37,9 @@ namespace MissionPlanner.ArduPilot
             double minlong = 180;
 
             int dolandstart = -1;
+            
+            // 用于重新排序航点数字标识的计数器
+            int waypointCounter = 1;
 
             Func<MAVLink.MAV_FRAME, double, double, double> gethomealt = (altmode, lat, lng) =>
                 GetHomeAlt(altmode, home.Alt, lat, lng);
@@ -81,7 +84,7 @@ namespace MissionPlanner.ArduPilot
                     {     
                         pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                             item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                            (a + 1).ToString()));
+                            waypointCounter.ToString()));
                         route.Add(pointlist[pointlist.Count - 1]);
 
                         dolandstart = a;
@@ -93,17 +96,19 @@ namespace MissionPlanner.ArduPilot
                         }
                         
                         route.Add(pointlist[pointlist.Count - 1]);
-                        addpolygonmarker((a + 1).ToString(), item.lng, item.lat,
+                        addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, null, wpradius);
+                        waypointCounter++;
                     } 
                     else if ((command == (ushort) MAVLink.MAV_CMD.LAND || command == (ushort) MAVLink.MAV_CMD.VTOL_LAND) && item.lat != 0 && item.lng != 0)
                     {
                         pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                             item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                            (a + 1).ToString()));
+                            waypointCounter.ToString()));
                         route.Add(pointlist[pointlist.Count - 1]);
-                        addpolygonmarker((a + 1).ToString(), item.lng, item.lat,
+                        addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, null, wpradius);
+                        waypointCounter++;
 
                         RegenerateWPRoute(route, home,  false);
                         route.Clear();
@@ -112,7 +117,7 @@ namespace MissionPlanner.ArduPilot
                     {
                         pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                                 item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                                "ROI" + (a + 1))
+                                "ROI" + waypointCounter)
                             {color = Color.Red});
                         // do set roi is not a nav command. so we dont route through it
                         //fullpointlist.Add(pointlist[pointlist.Count - 1]);
@@ -120,8 +125,9 @@ namespace MissionPlanner.ArduPilot
                             new GMarkerGoogle(new PointLatLng(item.lat, item.lng),
                                 GMarkerGoogleType.red);
                         m.ToolTipMode = MarkerTooltipMode.Always;
-                        m.ToolTipText = (a + 1).ToString();
-                        m.Tag = (a + 1).ToString();
+                        m.ToolTipText = waypointCounter.ToString();
+                        m.Tag = waypointCounter.ToString();
+                        waypointCounter++;
 
                         GMapMarkerRect mBorders = new GMapMarkerRect(m.Position);
                         {
@@ -156,7 +162,7 @@ namespace MissionPlanner.ArduPilot
                         {
                             pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                                 item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                                (a + 1).ToString())
+                                waypointCounter.ToString())
                             {
                                 color = Color.LightBlue
                             });
@@ -205,19 +211,21 @@ namespace MissionPlanner.ArduPilot
                             else
                                 route.Add(pointlist[pointlist.Count - 1]);
 
-                            addpolygonmarker((a + 1).ToString(), item.lng, item.lat,
+                            addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                                 item.alt * altunitmultiplier, Color.LightBlue, this_loiterradius);
+                            waypointCounter++;
                         }
                     }
                     else if (command == (ushort) MAVLink.MAV_CMD.SPLINE_WAYPOINT)
                     {
                         pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                                 item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                                (a + 1).ToString())
+                                waypointCounter.ToString())
                             {Tag2 = "spline"});
                         route.Add(pointlist[pointlist.Count - 1]);
-                        addpolygonmarker((a + 1).ToString(), item.lng, item.lat,
+                        addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, Color.Green, wpradius);
+                        waypointCounter++;
                     }
                     else if (command == (ushort) MAVLink.MAV_CMD.WAYPOINT && item.lat == 0 && item.lng == 0)
                     {
@@ -231,10 +239,11 @@ namespace MissionPlanner.ArduPilot
                         {
                             pointlist.Add(new PointLatLngAlt(item.lat, item.lng,
                                 item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
-                                (a + 1).ToString()));
+                                waypointCounter.ToString()));
                             route.Add(pointlist[pointlist.Count - 1]);
-                            addpolygonmarker((a + 1).ToString(), item.lng, item.lat,
+                            addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                                 item.alt * altunitmultiplier, null, wpradius);
+                            waypointCounter++;
                         }
                         else
                         {

@@ -512,9 +512,7 @@ namespace MissionPlanner.GCSViews
                 {
                     if (dlg.ShowDialog() == DialogResult.OK)
                     {
-                        // 在地图上放置提示标记（起点与终点）
-                        AddCoordinateMarker(dlg.TakeoffLat, dlg.TakeoffLng, dlg.TakeoffAlt);
-                        AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
+                        // 异地起降航点会通过后续的航点生成逻辑自动创建，不需要额外的固定标记
 
                         // 在现有航点末尾追加异地起降段（首次设置时：将起点设为Home并在其前加入TAKEOFF）
                         try
@@ -674,8 +672,7 @@ namespace MissionPlanner.GCSViews
                             }
 
                             
-                            // 在地图上追加一个终点附近的过渡点标记（可选，这里直接用终点）
-                            AddCoordinateMarker(dlg.LandLat, dlg.LandLng, dlg.LandAlt);
+                            // 过渡点会通过航点生成逻辑自动创建，不需要额外的固定标记
 
                             // 始终保证最后一条为 RETURN_TO_LAUNCH；
                             // 若在追加 RTL 前，最近关键指令为 LAND，则先插入 TAKEOFF 再插入 RTL
@@ -750,11 +747,17 @@ namespace MissionPlanner.GCSViews
                         
                             string homeInfo = (isFirst && dlg.SetAsHome) ? "，已设为Home点" : "";
                             
-                            CustomMessageBox.Show($"已{(isFirst ? "生成" : "追加")}异地起降段（{mode}模式）{homeInfo}：{sequence}。", "成功");
+                            // CustomMessageBox.Show($"已{(isFirst ? "生成" : "追加")}异地起降段（{mode}模式）{homeInfo}：{sequence}。", "成功");
                         }
                         catch (Exception ex2)
                         {
                             CustomMessageBox.Show("插入命令失败: " + ex2.Message, "错误");
+                        }
+                        
+                        // 如果用户勾选了自动写入航点，则执行写入和读取操作
+                        if (dlg.WriteWaypoints)
+                        {
+                            WriteAndReadWaypointsAfterRemoteTakeoffLanding();
                         }
                     }
                 }
@@ -842,13 +845,10 @@ namespace MissionPlanner.GCSViews
                 }
                 catch { }
 
-                // 在地图上添加起飞、降落与过渡点标记
-                AddCoordinateMarker(takeoffLat, takeoffLng, takeoffAlt);
-                AddCoordinateMarker(landLat, landLng, landAlt);
-                AddCoordinateMarker(midLat, midLng, midAlt);
+                // 航点会通过航点生成逻辑自动创建，不需要额外的固定标记
 
                 UpdateCoordinateButtonText();
-                CustomMessageBox.Show("已成功将当前航点配置为异地起降模式！\n\n配置内容：\n- 第一个航点：TAKEOFF\n- LAND 前插入：DO_DIGICAM_CONFIGURE\n- LAND 与 RTL 之间插入：过渡 WAYPOINT\n- 最后一个航点：LAND\n- 末尾追加：RETURN_TO_LAUNCH", "成功");
+                // CustomMessageBox.Show("已成功将当前航点配置为异地起降模式！\n\n配置内容：\n- 第一个航点：TAKEOFF\n- LAND 前插入：DO_DIGICAM_CONFIGURE\n- LAND 与 RTL 之间插入：过渡 WAYPOINT\n- 最后一个航点：LAND\n- 末尾追加：RETURN_TO_LAUNCH", "成功");
             }
             catch (Exception ex)
             {
@@ -949,10 +949,9 @@ namespace MissionPlanner.GCSViews
                 }
                 catch { }
 
-                // 8) 在地图上增加过渡点标记，并更新计数
-                AddCoordinateMarker(midLat, midLng, midAlt);
+                // 8) 过渡点会通过航点生成逻辑自动创建，不需要额外的固定标记
                 UpdateCoordinateButtonText();
-                CustomMessageBox.Show("已成功重新配置异地起降，并合并新航点至同一条路线。\n\n规范：\n- 第一个航点：TAKEOFF\n- LAND 前插入：DO_DIGICAM_CONFIGURE\n- LAND 与 RTL 之间插入：过渡 WAYPOINT\n- 最后一个航点：LAND\n- 末尾追加：RETURN_TO_LAUNCH\n- Home：已设为首点", "成功");
+                // CustomMessageBox.Show("已成功重新配置异地起降，并合并新航点至同一条路线。\n\n规范：\n- 第一个航点：TAKEOFF\n- LAND 前插入：DO_DIGICAM_CONFIGURE\n- LAND 与 RTL 之间插入：过渡 WAYPOINT\n- 最后一个航点：LAND\n- 末尾追加：RETURN_TO_LAUNCH\n- Home：已设为首点", "成功");
             }
             catch (Exception ex)
             {
@@ -1097,10 +1096,7 @@ namespace MissionPlanner.GCSViews
                     catch { }
                     if (coordForm.ShowDialog() == DialogResult.OK)
                     {
-                        // 在地图上添加标记
-                        AddCoordinateMarker(coordForm.Latitude, coordForm.Longitude, coordForm.Altitude);
-                        
-                        // 创建航点并应用选择的命令
+                        // 直接创建航点，AddWPToMap会自动生成可拖拽的带数字航点
                         AddWPToMap(coordForm.Latitude, coordForm.Longitude, (int)coordForm.Altitude);
 
                         // 写入可见参数到新添加的行（如果存在）
@@ -1255,8 +1251,8 @@ namespace MissionPlanner.GCSViews
                     MainMap.Zoom = 15; // 设置合适的缩放级别
                 }
                 
-                // 显示成功消息
-                CustomMessageBox.Show($"已成功添加航点！\n纬度: {lat:F6}\n经度: {lng:F6}\n高度: {alt:F2}m\n\n航点已添加到飞行计划列表中。", "成功");
+                // 显示成功消息 - 已注释，避免繁琐的弹窗提示
+                // CustomMessageBox.Show($"已成功添加航点！\n纬度: {lat:F6}\n经度: {lng:F6}\n高度: {alt:F2}m\n\n航点已添加到飞行计划列表中。", "成功");
             }
             catch (Exception ex)
             {
@@ -1353,7 +1349,7 @@ namespace MissionPlanner.GCSViews
                         }
                         successMessage += "！";
                         
-                        CustomMessageBox.Show(successMessage, "成功");
+                        // CustomMessageBox.Show(successMessage, "成功");
                     }
                 }
                 else
@@ -1661,12 +1657,13 @@ namespace MissionPlanner.GCSViews
                 }
                 else
                 {
-                    if (
-                        CustomMessageBox.Show("This will clear your existing points, Continue?", "Confirm",
-                            MessageBoxButtons.OKCancel) != (int) DialogResult.OK)
-                    {
-                        return;
-                    }
+                    // 注释掉确认对话框，避免繁琐的弹窗提示
+                    // if (
+                    //     CustomMessageBox.Show("This will clear your existing points, Continue?", "Confirm",
+                    //         MessageBoxButtons.OKCancel) != (int) DialogResult.OK)
+                    // {
+                    //     return;
+                    // }
                 }
             }
 
@@ -2773,6 +2770,12 @@ namespace MissionPlanner.GCSViews
             catch (Exception ex)
             {
                 log.Info(ex.ToString());
+            }
+            finally
+            {
+                // 确保地图刷新，清理旧标记
+                MainMap.HoldInvalidation = false;
+                MainMap.Invalidate();
             }
         }
 
@@ -8346,6 +8349,27 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     if (CurentRectMarker.InnerMarker != null)
                     {
                         CurentRectMarker.InnerMarker.Position = pnew;
+                        
+                        // 只更新Home点坐标，普通航点坐标在拖拽结束时统一更新
+                        if (CurentRectMarker.InnerMarker.Tag != null)
+                        {
+                            try
+                            {
+                                string tagStr = CurentRectMarker.InnerMarker.Tag.ToString();
+                                
+                                // 只处理Home点，普通航点坐标在拖拽结束时通过callMeDrag统一更新
+                                if (tagStr == "H")
+                                {
+                                    // Home点，更新Home坐标
+                                    TXT_homelat.Text = pnew.Lat.ToString("0.0000000");
+                                    TXT_homelng.Text = pnew.Lng.ToString("0.0000000");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // 忽略解析错误，不影响拖动操作
+                            }
+                        }
                     }
                 }
                 else if (CurrentPOIMarker != null)
@@ -8933,7 +8957,11 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
             {
                 if (item is GMapMarkerRect)
                 {
+                    // 只有在没有拖动时才清空CurentRectMarker，避免拖动过程中标记丢失
+                    if (!isMouseDraging)
+                {
                     CurentRectMarker = null;
+                    }
                     GMapMarkerRect rc = item as GMapMarkerRect;
                     rc.ResetColor();
                     MainMap.Invalidate(false);
@@ -9330,6 +9358,54 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
         {
            return Common.MessageShowAgain(Strings.ZeroAltWarningTitle,String.Format(Strings.ZeroAltWarning, wpno + 1),true);
 
+        }
+        
+        // 异地起降完成后写入航点的方法
+        private void WriteAndReadWaypointsAfterRemoteTakeoffLanding()
+        {
+            try
+            {
+                // 检查连接状态
+                if (MainV2.comPort?.BaseStream?.IsOpen != true)
+                {
+                    MessageBox.Show("未连接到飞行器，无法写入航点。请先连接飞行器。", "连接错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // 检查是否有航点需要写入
+                if (Commands.Rows.Count <= 0)
+                {
+                    MessageBox.Show("没有航点需要写入。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                
+                // 显示调试信息
+                MessageBox.Show($"准备写入航点，当前航点数量：{Commands.Rows.Count}", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // 写入航点到飞行器
+                BUT_write_Click(null, null);
+                
+                // 等待写入操作完成
+                System.Threading.Thread.Sleep(1500);
+                
+                // 再次检查连接状态
+                if (MainV2.comPort?.BaseStream?.IsOpen != true)
+                {
+                    MessageBox.Show("写入过程中连接断开。", "连接错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // 读取航点列表
+                BUT_read_Click(null, null);
+                
+                // 显示完成信息
+                MessageBox.Show("航点写入和读取操作已完成。", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入航点时发生错误：{ex.Message}\n\n堆栈跟踪：{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

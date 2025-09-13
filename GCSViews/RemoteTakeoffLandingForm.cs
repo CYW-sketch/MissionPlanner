@@ -18,6 +18,7 @@ namespace MissionPlanner.Controls
         public double LandingHeight { get; private set; }
         public bool SetAsHome { get; private set; }
         public bool TerrainFollowing { get; private set; }
+        public bool WriteWaypoints { get; private set; }
         
         // 降落模式枚举
         public enum LandingMode
@@ -34,7 +35,7 @@ namespace MissionPlanner.Controls
 
         TextBox txtTLat, txtTLng, txtTAlt, txtLLat, txtLLng, txtLAlt, txtLandingHeight, txtCargoTime, txtDropHeight;
         RadioButton rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop;
-        CheckBox chkSetAsHome, chkTerrainFollowing;
+        CheckBox chkSetAsHome, chkTerrainFollowing, chkWriteWaypoints;
         Button btnOK, btnCancel;
         Label lblCargoTime, lblDropHeight;
 
@@ -67,7 +68,10 @@ namespace MissionPlanner.Controls
                 UpdateLandingOptionsVisibility();
                 
                 // 窗体加载完成后再次确保状态正确
-                this.Load += (s, e) => UpdateLandingOptionsVisibility();
+                this.Load += (s, e) => {
+                    UpdateLandingOptionsVisibility();
+                    UpdateWaypointCheckboxState();
+                };
             }
             catch { }
         }
@@ -91,7 +95,7 @@ namespace MissionPlanner.Controls
                 // 调整按钮位置（因为界面更紧凑了）
                 btnOK.Location = new Point(120, 380);
                 btnCancel.Location = new Point(240, 380);
-                this.ClientSize = new Size(450, 440);
+                this.ClientSize = new Size(450, 480);
             }
             catch { }
         }
@@ -134,6 +138,10 @@ namespace MissionPlanner.Controls
             lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(250, 335) };
             txtDropHeight = new TextBox { Location = new Point(340, 335), Size = new Size(60, 23), Text = "30" }; // 默认30米
             
+            // 写入航点选项（在确定按钮下方）
+            chkWriteWaypoints = new CheckBox { Text = "自动写入航点并读取", AutoSize = true, Location = new Point(20, 420), Checked = IsConnected() };
+            var lblWaypointTip = new Label { Text = "※ 选中后按下确定将自动写入航点到飞行器并读取航点列表", AutoSize = true, Location = new Point(20, 440), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 8F) };
+            
             // 按钮
             btnOK = new Button { Text = "确定", Location = new Point(120, 380), Size = new Size(100, 30), DialogResult = DialogResult.OK };
             btnCancel = new Button { Text = "取消", Location = new Point(240, 380), Size = new Size(100, 30), DialogResult = DialogResult.Cancel };
@@ -141,13 +149,14 @@ namespace MissionPlanner.Controls
 
             this.AcceptButton = btnOK;
             this.CancelButton = btnCancel;
-            this.ClientSize = new Size(450, 440);
+            this.ClientSize = new Size(450, 480);
             this.Controls.AddRange(new Control[] { 
                 lblTakeoffTitle, lblTakeoffInfo,
                 chkTerrainFollowing, lblTerrainTip,
                 lblDestinationTitle, lblLLAT, lblLLNG, lblLALT, txtLLat, txtLLng, txtLAlt,
                 lblOptions, rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop,
                 lblCargoTime, txtCargoTime, lblDropHeight, txtDropHeight,
+                chkWriteWaypoints, lblWaypointTip,
                 btnOK, btnCancel 
             });
             
@@ -201,6 +210,10 @@ namespace MissionPlanner.Controls
             DropHeight = rbLandDrop.Checked ? double.Parse(txtDropHeight.Text) : 0;
             SetAsHome = true; // 自动设置为Home点
             TerrainFollowing = chkTerrainFollowing.Checked; // 设置仿地飞行选项：true=Terrain模式，false=Relative模式
+            WriteWaypoints = chkWriteWaypoints.Checked; // 设置是否写入航点
+            
+            // 注意：航点写入功能将在异地起降弹窗关闭后，在FlightPlanner中执行
+            // 这里只设置标志，不立即执行写入操作
             
             // 设置Frame模式
             // SetFrameMode();
@@ -373,6 +386,76 @@ namespace MissionPlanner.Controls
             if (lblTakeoffInfo != null)
             {
                 lblTakeoffInfo.Text = $"纬度: {TakeoffLat:F6}, 经度: {TakeoffLng:F6}, 高度: {TakeoffAlt}米";
+            }
+        }
+        
+        private bool IsConnected()
+        {
+            // 检查是否连接到飞行器
+            return MainV2.comPort?.BaseStream?.IsOpen == true;
+        }
+        
+        private void UpdateWaypointCheckboxState()
+        {
+            // 根据连接状态更新勾选框状态
+            if (chkWriteWaypoints != null)
+            {
+                chkWriteWaypoints.Checked = IsConnected();
+            }
+        }
+        
+        private void WriteAndReadWaypoints()
+        {
+            try
+            {
+                // 检查连接状态
+                if (!IsConnected())
+                {
+                    MessageBox.Show("未连接到飞行器，无法写入航点。请先连接飞行器。", "连接错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // 获取FlightPlanner实例
+                var flightPlanner = MainV2.instance?.FlightPlanner;
+                if (flightPlanner == null)
+                {
+                    MessageBox.Show("无法获取飞行计划器实例。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                
+                // 检查是否有航点需要写入
+                if (flightPlanner.Commands.Rows.Count <= 0)
+                {
+                    MessageBox.Show("没有航点需要写入。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                
+                // 显示调试信息
+                MessageBox.Show($"准备写入航点，当前航点数量：{flightPlanner.Commands.Rows.Count}", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // 写入航点到飞行器
+                flightPlanner.BUT_write_Click(null, null);
+                
+                // 等待写入操作完成
+                System.Threading.Thread.Sleep(1500);
+                
+                // 再次检查连接状态
+                if (!IsConnected())
+                {
+                    MessageBox.Show("写入过程中连接断开。", "连接错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                // 读取航点列表
+                flightPlanner.BUT_read_Click(null, null);
+                
+                // 显示完成信息
+                MessageBox.Show("航点写入和读取操作已完成。", "调试信息", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"写入航点时发生错误：{ex.Message}\n\n堆栈跟踪：{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
