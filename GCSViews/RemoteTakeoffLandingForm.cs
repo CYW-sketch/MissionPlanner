@@ -63,8 +63,8 @@ namespace MissionPlanner.Controls
                     SetDestinationDefaultValue();
                 }
                 
-                // 设置默认值
-                txtLandingHeight.Text = "0";
+                // 设置默认值（移除不存在的控件引用）
+                // txtLandingHeight.Text = "0"; // 此控件不存在，已移除
                 
                 // 初始化降落选项可见性（确保初始状态正确）
                 UpdateLandingOptionsVisibility();
@@ -132,7 +132,7 @@ namespace MissionPlanner.Controls
 
             // 飞行模式组
             var lblFlightModeTitle = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(25, 355), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            var flightModePanel = new Panel { Location = new Point(20, 380), Size = new Size(580, 140) };
+            var flightModePanel = new Panel { Location = new Point(20, 380), Size = new Size(350, 140) };
             rbPassThrough = new RadioButton { Text = "经过航点（不降落）", AutoSize = true, Location = new Point(10, 5), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
             rbLandGround = new RadioButton { Text = "降落地面，按键返航", AutoSize = true, Location = new Point(10, 35), Font = new Font("Microsoft YaHei", 11F) };
             rbLandCargo = new RadioButton { Text = "降落地面，释放货物____秒后返航", AutoSize = true, Location = new Point(10, 65), Font = new Font("Microsoft YaHei", 11F) };
@@ -140,10 +140,12 @@ namespace MissionPlanner.Controls
             flightModePanel.Controls.AddRange(new Control[] { rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop });
             
             // 降落参数输入（移动到对应选项右侧）
-            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(320, 425), Font = new Font("Microsoft YaHei", 10F) };
-            txtCargoTime = new TextBox { Location = new Point(420, 420), Size = new Size(80, 35), Text = "5", Font = new Font("Microsoft YaHei", 11F) }; // 默认5秒
-            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(320, 485), Font = new Font("Microsoft YaHei", 10F) };
-            txtDropHeight = new TextBox { Location = new Point(420, 480), Size = new Size(80, 35), Text = "30", Font = new Font("Microsoft YaHei", 11F) }; // 默认30米
+            // 等待时间输入框放在第三个选项（降落地面，释放货物后返航）右侧
+            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(400, 425), Font = new Font("Microsoft YaHei", 10F) };
+            txtCargoTime = new TextBox { Location = new Point(500, 420), Size = new Size(100, 35), Text = "5", Font = new Font("Microsoft YaHei", 11F) }; // 默认5秒
+            // 抛投高度输入框放在第四个选项（空中抛投）右侧
+            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(400, 485), Font = new Font("Microsoft YaHei", 10F) };
+            txtDropHeight = new TextBox { Location = new Point(500, 480), Size = new Size(100, 35), Text = "30", Font = new Font("Microsoft YaHei", 11F) }; // 默认30米
             
             // 按钮（移到自动写入航点选框上方，完全居中对齐）
             btnOK = new Button { Text = "确定", Location = new Point(185, 540), Size = new Size(140, 45), DialogResult = DialogResult.OK, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
@@ -185,8 +187,8 @@ namespace MissionPlanner.Controls
             if (!validateNumber(txtLAlt, null, null, "目的地高度")) { this.DialogResult = DialogResult.None; return; }
 
             // 验证降落参数（只有在相应选项被选中且输入框可用时才验证）
-            // 等待时间允许为0（0=按键解锁）
-            if (rbLandCargo.Checked && txtCargoTime.Enabled && !validateNumber(txtCargoTime, 0, 300, "货物释放时间")) 
+            // 等待时间至少为1秒才能生效
+            if (rbLandCargo.Checked && txtCargoTime.Enabled && !validateNumber(txtCargoTime, 1, 300, "货物释放时间")) 
             { 
                 this.DialogResult = DialogResult.None; 
                 return; 
@@ -368,8 +370,8 @@ namespace MissionPlanner.Controls
             }
             else
             {
-                txtCargoTime.Enabled = false;
-                // txtCargoTime.BackColor = Color.FromArgb(220, 220, 220); // 锁定状态的灰色
+                txtCargoTime.Enabled = true; // 保持启用状态，确保可见
+                // txtCargoTime.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色
                 txtCargoTime.ReadOnly = true;
             }
             
@@ -382,8 +384,8 @@ namespace MissionPlanner.Controls
             }
             else
             {
-                txtDropHeight.Enabled = false;
-                // txtDropHeight.BackColor = Color.FromArgb(220, 220, 220); // 锁定状态的灰色
+                txtDropHeight.Enabled = true; // 保持启用状态，确保可见
+                // txtDropHeight.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色
                 txtDropHeight.ReadOnly = true;
             }
             
