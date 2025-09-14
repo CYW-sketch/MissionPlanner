@@ -6699,36 +6699,46 @@ namespace MissionPlanner.GCSViews
                 // 检查是否有飞行计划器实例
                 if (MainV2.instance?.FlightPlanner == null)
                 {
-                    CustomMessageBox.Show("飞行计划器未初始化，无法删除航点。", "错误", 
+                    CustomMessageBox.Show("飞行计划器未初始化，无法清空航点。", "错误", 
                         CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
                     return;
                 }
 
-                // 检查是否有航点可删除
+                // 检查是否有航点可清空
                 if (MainV2.instance.FlightPlanner.Commands.Rows.Count == 0)
                 {
-                    CustomMessageBox.Show("当前没有航点可删除。", "提示", 
+                    CustomMessageBox.Show("当前没有航点可清空。", "提示", 
                         CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
                     return;
                 }
 
-                // 确认删除操作
-                var result = CustomMessageBox.Show("确定要删除最后一个航点吗？", "确认删除", 
+                // 确认清空操作
+                var result = CustomMessageBox.Show($"确定要清空所有 {MainV2.instance.FlightPlanner.Commands.Rows.Count} 个航点吗？", "确认清空", 
                     CustomMessageBox.MessageBoxButtons.YesNo, CustomMessageBox.MessageBoxIcon.Question);
 
                 if (result == CustomMessageBox.DialogResult.Yes)
                 {
-                    // 删除最后一个航点
-                    MainV2.instance.FlightPlanner.Commands.Rows.RemoveAt(MainV2.instance.FlightPlanner.Commands.Rows.Count - 1);
+                    // 清空所有航点（与FlightPlanner保持一致）
+                    MainV2.instance.FlightPlanner.quickadd = true;
+                    // mono fix
+                    try
+                    {
+                        MainV2.instance.FlightPlanner.Commands.CurrentCell = null;
+                    }
+                    catch { }
+
+                    MainV2.instance.FlightPlanner.Commands.Rows.Clear();
+                    // selectedrow是私有字段，无法直接访问，但清空后会自动重置
+                    MainV2.instance.FlightPlanner.quickadd = false;
                     MainV2.instance.FlightPlanner.writeKML();
                     
-                    CustomMessageBox.Show("航点删除成功。", "删除成功", 
+                    CustomMessageBox.Show("所有航点已清空。", "清空成功", 
                         CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
-                CustomMessageBox.Show("删除航点时发生错误: " + ex.Message, "错误", 
+                CustomMessageBox.Show("清空航点时发生错误: " + ex.Message, "错误", 
                     CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
             }
         }
@@ -6748,91 +6758,86 @@ namespace MissionPlanner.GCSViews
                 // 强制初始化地图控件（如果还没有初始化）
                 ForceInitializeMap();
 
-                // 获取当前地图位置作为默认起飞点，优先使用飞行计划界面的地图位置
-                double lat = 0, lng = 0, alt = 30;
-                bool hasValidPosition = false;
-
-                // 方案1：优先使用FlightPlanner的地图位置（最可靠）
-                if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                // 使用与FlightPlanner相同的逻辑：读取上一次终点作为本次锁定的起点
+                double startLat = 0, startLng = 0, startAlt = 0;
+                bool hasPrevEnd = false;
+                try
                 {
-                    var fpMapCenter = MainV2.instance.FlightPlanner.MainMap.Position;
-                    if (!fpMapCenter.IsEmpty && Math.Abs(fpMapCenter.Lat) > 0.001 && Math.Abs(fpMapCenter.Lng) > 0.001)
+                    if (MainV2.instance.FlightPlanner.Commands.Rows.Count > 0)
                     {
-                        lat = fpMapCenter.Lat;
-                        lng = fpMapCenter.Lng;
-                        hasValidPosition = true;
+                        // 优先：从末尾向前寻找最后一个 WAYPOINT 行
+                        for (int i = MainV2.instance.FlightPlanner.Commands.Rows.Count - 1; i >= 0; i--)
+                        {
+                            var row = MainV2.instance.FlightPlanner.Commands.Rows[i];
+                            if (row.IsNewRow) continue;
+                            var cmd = row.Cells[0].Value?.ToString() ?? string.Empty; // Command列索引为0
+                            if (cmd != MAVLink.MAV_CMD.WAYPOINT.ToString()) continue;
+                            var latObj = row.Cells[5].Value; // Lat列索引为5
+                            var lngObj = row.Cells[6].Value; // Lon列索引为6
+                            var altObj = row.Cells[7].Value; // Alt列索引为7
+                            double latVal, lngVal, altVal;
+                            if (latObj != null && lngObj != null &&
+                                double.TryParse(latObj.ToString(), out latVal) &&
+                                double.TryParse(lngObj.ToString(), out lngVal) &&
+                                !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
+                            {
+                                startLat = latVal;
+                                startLng = lngVal;
+                                if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
+                                startAlt = altVal;
+                                hasPrevEnd = true;
+                                break;
+                            }
+                        }
+
+                        // 退而求其次：找最后一个非零坐标行
+                        if (!hasPrevEnd)
+                        {
+                            for (int i = MainV2.instance.FlightPlanner.Commands.Rows.Count - 1; i >= 0; i--)
+                            {
+                                var row = MainV2.instance.FlightPlanner.Commands.Rows[i];
+                                if (row.IsNewRow) continue;
+                                var latObj = row.Cells[5].Value; // Lat列索引为5
+                                var lngObj = row.Cells[6].Value; // Lon列索引为6
+                                var altObj = row.Cells[7].Value; // Alt列索引为7
+                                double latVal, lngVal, altVal;
+                                if (latObj != null && lngObj != null &&
+                                    double.TryParse(latObj.ToString(), out latVal) &&
+                                    double.TryParse(lngObj.ToString(), out lngVal) &&
+                                    !(Math.Abs(latVal) < double.Epsilon && Math.Abs(lngVal) < double.Epsilon))
+                                {
+                                    startLat = latVal;
+                                    startLng = lngVal;
+                                    if (!double.TryParse(altObj != null ? altObj.ToString() : "", out altVal)) altVal = 0;
+                                    startAlt = altVal;
+                                    hasPrevEnd = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!hasPrevEnd)
+                    {
+                        // 如果没有上一个航点，使用地图中心
+                        if (MainV2.instance?.FlightPlanner?.MainMap != null)
+                        {
+                            var map = MainV2.instance.FlightPlanner.MainMap;
+                            startLat = map.Position.Lat;
+                            startLng = map.Position.Lng;
+                        }
+                        else if (gMapControl1 != null)
+                        {
+                            startLat = gMapControl1.Position.Lat;
+                            startLng = gMapControl1.Position.Lng;
+                        }
+                        // 设置默认高度为30米
+                        startAlt = 30;
                     }
                 }
+                catch { }
 
-                if (!hasValidPosition)
-                {
-                    // 方案2：从FlightData地图控件获取位置
-                    var mapCenter = gMapControl1.Position;
-                    if (!mapCenter.IsEmpty && Math.Abs(mapCenter.Lat) > 0.001 && Math.Abs(mapCenter.Lng) > 0.001)
-                    {
-                        lat = mapCenter.Lat;
-                        lng = mapCenter.Lng;
-                        hasValidPosition = true;
-                    }
-                }
-
-                if (!hasValidPosition)
-                {
-                    // 方案3：从MAV数据获取当前位置
-                    if (MainV2.comPort?.MAV?.cs != null && 
-                        Math.Abs(MainV2.comPort.MAV.cs.lat) > 0.001 && 
-                        Math.Abs(MainV2.comPort.MAV.cs.lng) > 0.001)
-                    {
-                        lat = MainV2.comPort.MAV.cs.lat;
-                        lng = MainV2.comPort.MAV.cs.lng;
-                        alt = MainV2.comPort.MAV.cs.altasl;
-                        hasValidPosition = true;
-                    }
-                }
-
-                if (!hasValidPosition)
-                {
-                    // 方案4：从Home位置获取
-                    if (MainV2.comPort?.MAV?.cs?.HomeLocation != null && 
-                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lat) > 0.001 && 
-                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lng) > 0.001)
-                    {
-                        lat = MainV2.comPort.MAV.cs.HomeLocation.Lat;
-                        lng = MainV2.comPort.MAV.cs.HomeLocation.Lng;
-                        alt = MainV2.comPort.MAV.cs.HomeLocation.Alt;
-                        hasValidPosition = true;
-                    }
-                }
-
-                if (!hasValidPosition)
-                {
-                    // 方案5：从设置中获取上次保存的位置
-                    double savedLat = Settings.Instance.GetDouble("maplast_lat");
-                    double savedLng = Settings.Instance.GetDouble("maplast_lng");
-                    if (Math.Abs(savedLat) > 0.001 && Math.Abs(savedLng) > 0.001)
-                    {
-                        lat = savedLat;
-                        lng = savedLng;
-                        hasValidPosition = true;
-                    }
-                }
-
-                if (!hasValidPosition)
-                {
-                    CustomMessageBox.Show("无法获取当前位置信息。\n\n请确保：\n1. 地图已正确加载\n2. 设备已连接并获取到GPS位置\n3. 已设置Home位置\n\n或者您可以先在地图上点击设置一个位置。", "无法获取位置", 
-                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // 直接调用RemoteTakeoffLandingForm，传递获取到的位置信息
-                using (var dlg = new Controls.RemoteTakeoffLandingForm(lat, lng, alt))
-                {
-                    if (dlg.ShowDialog() == DialogResult.OK)
-                    {
-                        // 调用飞行计划器的异地起降功能，传递对话框结果
-                        MainV2.instance.FlightPlanner.ProcessRemoteTakeoffLanding(dlg);
-                    }
-                }
+                // 直接调用FlightPlanner的完整异地起降逻辑，避免重复弹窗
+                MainV2.instance.FlightPlanner.BtnRemoteTakeoffLanding_Click(sender, e);
             }
             catch (Exception ex)
             {
