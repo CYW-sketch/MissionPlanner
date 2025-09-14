@@ -95,9 +95,9 @@ namespace MissionPlanner.Controls
                 UpdateLandingOptionsVisibility();
                 
                 // 调整按钮位置（因为界面更紧凑了）
-                btnOK.Location = new Point(120, 380);
-                btnCancel.Location = new Point(240, 380);
-                this.ClientSize = new Size(450, 480);
+                btnOK.Location = new Point(185, 540);
+                btnCancel.Location = new Point(345, 540);
+                this.ClientSize = new Size(650, 680);
             }
             catch { }
         }
