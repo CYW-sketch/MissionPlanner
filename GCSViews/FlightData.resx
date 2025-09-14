@@ -1435,7 +1435,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabPageWaypoints.TabIndex" type="System.Int32, mscorlib">
-    <value>7</value>
+    <value>3</value>
   </data>
   <data name="tabPageWaypoints.Text" xml:space="preserve">
     <value>航点管理</value>
@@ -1603,7 +1603,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabPagemessages.TabIndex" type="System.Int32, mscorlib">
-    <value>9</value>
+    <value>4</value>
   </data>
   <data name="tabPagemessages.Text" xml:space="preserve">
     <value>Messages</value>
@@ -1717,7 +1717,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabActionsSimple.TabIndex" type="System.Int32, mscorlib">
-    <value>9</value>
+    <value>10</value>
   </data>
   <data name="tabActionsSimple.Text" xml:space="preserve">
     <value>Actions</value>
@@ -1768,7 +1768,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabPagePreFlight.TabIndex" type="System.Int32, mscorlib">
-    <value>10</value>
+    <value>11</value>
   </data>
   <data name="tabPagePreFlight.Text" xml:space="preserve">
     <value>PreFlight</value>
@@ -2693,7 +2693,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabGauges.TabIndex" type="System.Int32, mscorlib">
-    <value>0</value>
+    <value>5</value>
   </data>
   <data name="tabGauges.Text" xml:space="preserve">
     <value>Gauges</value>
@@ -3176,7 +3176,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabTransponder.TabIndex" type="System.Int32, mscorlib">
-    <value>12</value>
+    <value>7</value>
   </data>
   <data name="tabTransponder.Text" xml:space="preserve">
     <value>Transponder</value>
@@ -3206,7 +3206,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabStatus.TabIndex" type="System.Int32, mscorlib">
-    <value>1</value>
+    <value>6</value>
   </data>
   <data name="tabStatus.Text" xml:space="preserve">
     <value>Status</value>
@@ -3854,7 +3854,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabServo.TabIndex" type="System.Int32, mscorlib">
-    <value>5</value>
+    <value>15</value>
   </data>
   <data name="tabServo.Text" xml:space="preserve">
     <value>Servo/Relay</value>
@@ -4052,7 +4052,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabAuxFunction.TabIndex" type="System.Int32, mscorlib">
-    <value>13</value>
+    <value>9</value>
   </data>
   <data name="tabAuxFunction.Text" xml:space="preserve">
     <value>Aux Function</value>
@@ -4286,7 +4286,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabScripts.TabIndex" type="System.Int32, mscorlib">
-    <value>7</value>
+    <value>14</value>
   </data>
   <data name="tabScripts.Text" xml:space="preserve">
     <value>Scripts</value>
@@ -4586,7 +4586,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabPayload.TabIndex" type="System.Int32, mscorlib">
-    <value>11</value>
+    <value>8</value>
   </data>
   <data name="tabPayload.Text" xml:space="preserve">
     <value>Payload Control</value>
@@ -5087,7 +5087,7 @@
     <value>290, 175</value>
   </data>
   <data name="tabTLogs.TabIndex" type="System.Int32, mscorlib">
-    <value>3</value>
+    <value>12</value>
   </data>
   <data name="tabTLogs.Text" xml:space="preserve">
     <value>Telemetry Logs</value>
@@ -5333,7 +5333,7 @@
     <value>290, 175</value>
   </data>
   <data name="tablogbrowse.TabIndex" type="System.Int32, mscorlib">
-    <value>6</value>
+    <value>13</value>
   </data>
   <data name="tablogbrowse.Text" xml:space="preserve">
     <value>DataFlash Logs</value>

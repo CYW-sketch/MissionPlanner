@@ -715,6 +715,8 @@ namespace MissionPlanner.GCSViews
 
             TabListDisplay.Add(tabPagemessages.Name, MainV2.DisplayConfiguration.displayMessagesTab);
 
+            TabListDisplay.Add(tabPageWaypoints.Name, MainV2.DisplayConfiguration.displayWaypointsTab);
+
             TabListDisplay.Add(tabTransponder.Name, MainV2.DisplayConfiguration.displayTransponderTab);
 
             TabListDisplay.Add(tabAuxFunction.Name, MainV2.DisplayConfiguration.displayAuxFunctionTab);
@@ -727,7 +729,19 @@ namespace MissionPlanner.GCSViews
             string tabs = Settings.Instance["tabcontrolactions"];
 
             if (String.IsNullOrEmpty(tabs) || TabListOriginal == null || TabListOriginal.Count == 0)
+            {
+                // If no settings exist, add all available tabs that should be displayed
+                tabControlactions.TabPages.Clear();
+                foreach (TabPage tabPage in TabListOriginal)
+                {
+                    if ((TabListDisplay.ContainsKey(tabPage.Name) && TabListDisplay[tabPage.Name] == true) || !TabListDisplay.ContainsKey(tabPage.Name))
+                    {
+                        tabControlactions.TabPages.Add(tabPage);
+                        log.Debug("add tabControlactions (default) " + tabPage.Name);
+                    }
+                }
                 return;
+            }
 
             string[] tabarray = tabs.Split(';');
 
@@ -759,6 +773,9 @@ namespace MissionPlanner.GCSViews
         {
             updateDisplayTabControlActions();
 
+            // Check if waypoints tab should be added to existing settings
+            ensureWaypointsTabInSettings();
+
             loadTabControlActions();
 
             //we want to at least have one tabpage
@@ -769,6 +786,55 @@ namespace MissionPlanner.GCSViews
             }
 
             ThemeManager.ApplyThemeTo(tabControlactions);
+        }
+
+        private void ensureWaypointsTabInSettings()
+        {
+            string tabs = Settings.Instance["tabcontrolactions"];
+            log.Debug("Current tabcontrolactions setting: " + (tabs ?? "null"));
+            
+            if (!String.IsNullOrEmpty(tabs))
+            {
+                string[] tabarray = tabs.Split(';');
+                log.Debug("Current tabs: " + string.Join(", ", tabarray));
+                
+                // Check if waypoints tab exists and is in the correct position
+                int waypointsIndex = Array.IndexOf(tabarray, "tabPageWaypoints");
+                int messagesIndex = Array.IndexOf(tabarray, "tabPagemessages");
+                
+                if (waypointsIndex < 0)
+                {
+                    // Waypoints tab doesn't exist, add it before messages tab
+                    if (messagesIndex >= 0)
+                    {
+                        List<string> tabList = new List<string>(tabarray);
+                        tabList.Insert(messagesIndex, "tabPageWaypoints");
+                        Settings.Instance["tabcontrolactions"] = string.Join(";", tabList) + ";";
+                        log.Debug("Inserted tabPageWaypoints before tabPagemessages");
+                    }
+                    else
+                    {
+                        // If messages tab not found, add waypoints tab at the beginning
+                        Settings.Instance["tabcontrolactions"] = "tabPageWaypoints;" + tabs;
+                        log.Debug("Added tabPageWaypoints at the beginning");
+                    }
+                }
+                else if (messagesIndex >= 0 && waypointsIndex > messagesIndex)
+                {
+                    // Waypoints tab exists but is after messages tab, move it before
+                    List<string> tabList = new List<string>(tabarray);
+                    tabList.RemoveAt(waypointsIndex);
+                    int newIndex = messagesIndex;
+                    if (waypointsIndex < messagesIndex) newIndex--; // Adjust index if we removed an earlier item
+                    tabList.Insert(newIndex, "tabPageWaypoints");
+                    Settings.Instance["tabcontrolactions"] = string.Join(";", tabList) + ";";
+                    log.Debug("Moved tabPageWaypoints before tabPagemessages");
+                }
+            }
+            else
+            {
+                log.Debug("No tabcontrolactions setting found, will use default behavior");
+            }
         }
 
         internal void BUT_run_script_Click(object sender, EventArgs e)

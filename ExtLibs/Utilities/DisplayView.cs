@@ -59,6 +59,7 @@ namespace MissionPlanner.Utilities
         public Boolean displayTelemetryTab { get; set; }
         public Boolean displayDataflashTab { get; set; }
         public Boolean displayMessagesTab { get; set; }
+        public Boolean displayWaypointsTab { get; set; }
         public Boolean displayTransponderTab { get; set; }
         public Boolean displayAuxFunctionTab { get; set; }
         public Boolean displayPayloadTab { get; set; }
@@ -154,6 +155,7 @@ namespace MissionPlanner.Utilities
             displayTelemetryTab = true;
             displayDataflashTab = true;
             displayMessagesTab = true;
+            displayWaypointsTab = true;
             displayTransponderTab = true;
             displayAuxFunctionTab = true;
             displayPayloadTab = true;
@@ -287,6 +289,7 @@ namespace MissionPlanner.Utilities
                 displayTelemetryTab = true,
                 displayDataflashTab = true,
                 displayMessagesTab = true,
+                displayWaypointsTab = true,
                 displayTransponderTab = true,
                 displayAuxFunctionTab = true,
                 displayPayloadTab = true,
@@ -374,6 +377,7 @@ namespace MissionPlanner.Utilities
                 displayTelemetryTab = true,
                 displayDataflashTab = true,
                 displayMessagesTab = true,
+                displayWaypointsTab = true,
                 displayTransponderTab = true,
                 displayAuxFunctionTab = true,
                 displayPayloadTab = true,
