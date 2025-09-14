@@ -86,6 +86,18 @@ namespace MissionPlanner.Controls
             }
         }
 
+        public static TResult InvokeIfRequired<TResult>(this ISynchronizeInvoke control, Func<TResult> func)
+        {
+            if (control.InvokeRequired)
+            {
+                return (TResult)control.Invoke(func, null);
+            }
+            else
+            {
+                return func();
+            }
+        }
+
         public static void BeginInvokeIfRequired<T>(this T control, Action<T> action) where T : ISynchronizeInvoke
         {
             if (control.InvokeRequired)

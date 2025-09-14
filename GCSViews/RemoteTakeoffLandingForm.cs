@@ -46,25 +46,98 @@ namespace MissionPlanner.Controls
             InitializeComponent();
             ThemeManager.ApplyThemeTo(this);
             
-            // 自动获取地图中心作为起飞点
+            // 自动获取地图中心作为起飞点，使用多种方案确保能获取到有效坐标
             try
             {
+                double lat = 0, lng = 0, alt = 30;
+                bool hasValidPosition = false;
+
+                // 方案1：优先使用FlightPlanner的地图位置（最可靠）
                 if (MainV2.instance?.FlightPlanner?.MainMap != null)
                 {
-                    var map = MainV2.instance.FlightPlanner.MainMap;
-                    TakeoffLat = map.Position.Lat;
-                    TakeoffLng = map.Position.Lng;
-                    TakeoffAlt = 30; // 默认起飞高度30米
-                    
-                    // 更新起飞点显示信息
-                    UpdateTakeoffInfo();
-                    
-                    // 设置目的地默认值为上一个航点（如果有的话）
-                    SetDestinationDefaultValue();
+                    var fpMapCenter = MainV2.instance.FlightPlanner.MainMap.Position;
+                    if (!fpMapCenter.IsEmpty && Math.Abs(fpMapCenter.Lat) > 0.001 && Math.Abs(fpMapCenter.Lng) > 0.001)
+                    {
+                        lat = fpMapCenter.Lat;
+                        lng = fpMapCenter.Lng;
+                        hasValidPosition = true;
+                    }
                 }
+
+                if (!hasValidPosition)
+                {
+                    // 方案2：从FlightData地图控件获取位置
+                    if (MainV2.instance?.FlightData?.gMapControl1 != null)
+                    {
+                        var mapCenter = MainV2.instance.FlightData.gMapControl1.Position;
+                        if (!mapCenter.IsEmpty && Math.Abs(mapCenter.Lat) > 0.001 && Math.Abs(mapCenter.Lng) > 0.001)
+                        {
+                            lat = mapCenter.Lat;
+                            lng = mapCenter.Lng;
+                            hasValidPosition = true;
+                        }
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案3：从MAV数据获取当前位置
+                    if (MainV2.comPort?.MAV?.cs != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.lat;
+                        lng = MainV2.comPort.MAV.cs.lng;
+                        alt = MainV2.comPort.MAV.cs.altasl;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案4：从Home位置获取
+                    if (MainV2.comPort?.MAV?.cs?.HomeLocation != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.HomeLocation.Lat;
+                        lng = MainV2.comPort.MAV.cs.HomeLocation.Lng;
+                        alt = MainV2.comPort.MAV.cs.HomeLocation.Alt;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案5：从设置中获取上次保存的位置
+                    double savedLat = Settings.Instance.GetDouble("maplast_lat");
+                    double savedLng = Settings.Instance.GetDouble("maplast_lng");
+                    if (Math.Abs(savedLat) > 0.001 && Math.Abs(savedLng) > 0.001)
+                    {
+                        lat = savedLat;
+                        lng = savedLng;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案6：使用默认位置（北京）
+                    lat = 39.9042;
+                    lng = 116.4074;
+                    alt = 30;
+                }
+
+                // 设置获取到的坐标
+                TakeoffLat = lat;
+                TakeoffLng = lng;
+                TakeoffAlt = alt;
                 
-                // 设置默认值（移除不存在的控件引用）
-                // txtLandingHeight.Text = "0"; // 此控件不存在，已移除
+                // 更新起飞点显示信息
+                UpdateTakeoffInfo();
+                
+                // 设置目的地默认值为上一个航点（如果有的话）
+                SetDestinationDefaultValue();
                 
                 // 初始化降落选项可见性（确保初始状态正确）
                 UpdateLandingOptionsVisibility();
@@ -271,83 +344,128 @@ namespace MissionPlanner.Controls
         {
             try
             {
-                // 获取上一个有效航点的坐标作为目的地默认值
+                double lat = 0, lng = 0, alt = 30;
+                bool hasValidPosition = false;
+
+                // 方案1：优先获取上一个有效航点的坐标作为目的地默认值
                 if (MainV2.comPort?.MAV?.wps != null)
                 {
                     var waypoints = MainV2.comPort.MAV.wps;
                     
                     if (waypoints != null && waypoints.Count > 0)
                     {
-                        bool foundValid = false;
                         for (int i = waypoints.Count - 1; i >= 0; i--)
                         {
                             var wp = waypoints[i];
                             // 自适应单位：
                             // - 如果值很大，认为是E7或厘米单位；否则直接当作度/米
-                            double lat = Math.Abs(wp.x) > 1000 ? wp.x / 1e7 : wp.x;
-                            double lng = Math.Abs(wp.y) > 1000 ? wp.y / 1e7 : wp.y;
-                            double alt = wp.z > 1000 ? wp.z / 100 : wp.z;
-                            bool latValid = lat >= -90 && lat <= 90 && Math.Abs(lat) > 1e-6;
-                            bool lngValid = lng >= -180 && lng <= 180 && Math.Abs(lng) > 1e-6;
+                            double wpLat = Math.Abs(wp.x) > 1000 ? wp.x / 1e7 : wp.x;
+                            double wpLng = Math.Abs(wp.y) > 1000 ? wp.y / 1e7 : wp.y;
+                            double wpAlt = wp.z > 1000 ? wp.z / 100 : wp.z;
+                            bool latValid = wpLat >= -90 && wpLat <= 90 && Math.Abs(wpLat) > 1e-6;
+                            bool lngValid = wpLng >= -180 && wpLng <= 180 && Math.Abs(wpLng) > 1e-6;
                             if (latValid && lngValid)
                             {
-                                txtLLat.Text = lat.ToString("F6");
-                                txtLLng.Text = lng.ToString("F6");
-                                txtLAlt.Text = (Math.Abs(alt) > 1e-6 ? alt : 30).ToString("0");
-                                foundValid = true;
+                                lat = wpLat;
+                                lng = wpLng;
+                                alt = Math.Abs(wpAlt) > 1e-6 ? wpAlt : 30;
+                                hasValidPosition = true;
                                 break;
                             }
                         }
-                        if (!foundValid)
-                        {
-                            // 无有效航点，经纬度可能为0，退回地图中心
-                            if (MainV2.instance?.FlightPlanner?.MainMap != null)
-                            {
-                                var map = MainV2.instance.FlightPlanner.MainMap;
-                                txtLLat.Text = map.Position.Lat.ToString("F6");
-                                txtLLng.Text = map.Position.Lng.ToString("F6");
-                                txtLAlt.Text = "30";
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // 如果没有航点，使用地图中心作为默认值
-                        if (MainV2.instance?.FlightPlanner?.MainMap != null)
-                        {
-                            var map = MainV2.instance.FlightPlanner.MainMap;
-                            txtLLat.Text = map.Position.Lat.ToString("F6");
-                            txtLLng.Text = map.Position.Lng.ToString("F6");
-                            txtLAlt.Text = "30";
-                        }
                     }
                 }
-                else
+
+                if (!hasValidPosition)
                 {
-                    // 如果无法获取航点，使用地图中心作为默认值
+                    // 方案2：使用FlightPlanner的地图位置
                     if (MainV2.instance?.FlightPlanner?.MainMap != null)
                     {
-                        var map = MainV2.instance.FlightPlanner.MainMap;
-                        txtLLat.Text = map.Position.Lat.ToString("F6");
-                        txtLLng.Text = map.Position.Lng.ToString("F6");
-                        txtLAlt.Text = "30";
+                        var fpMapCenter = MainV2.instance.FlightPlanner.MainMap.Position;
+                        if (!fpMapCenter.IsEmpty && Math.Abs(fpMapCenter.Lat) > 0.001 && Math.Abs(fpMapCenter.Lng) > 0.001)
+                        {
+                            lat = fpMapCenter.Lat;
+                            lng = fpMapCenter.Lng;
+                            hasValidPosition = true;
+                        }
                     }
                 }
+
+                if (!hasValidPosition)
+                {
+                    // 方案3：从FlightData地图控件获取位置
+                    if (MainV2.instance?.FlightData?.gMapControl1 != null)
+                    {
+                        var mapCenter = MainV2.instance.FlightData.gMapControl1.Position;
+                        if (!mapCenter.IsEmpty && Math.Abs(mapCenter.Lat) > 0.001 && Math.Abs(mapCenter.Lng) > 0.001)
+                        {
+                            lat = mapCenter.Lat;
+                            lng = mapCenter.Lng;
+                            hasValidPosition = true;
+                        }
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案4：从MAV数据获取当前位置
+                    if (MainV2.comPort?.MAV?.cs != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.lat;
+                        lng = MainV2.comPort.MAV.cs.lng;
+                        alt = MainV2.comPort.MAV.cs.altasl;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案5：从Home位置获取
+                    if (MainV2.comPort?.MAV?.cs?.HomeLocation != null && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lat) > 0.001 && 
+                        Math.Abs(MainV2.comPort.MAV.cs.HomeLocation.Lng) > 0.001)
+                    {
+                        lat = MainV2.comPort.MAV.cs.HomeLocation.Lat;
+                        lng = MainV2.comPort.MAV.cs.HomeLocation.Lng;
+                        alt = MainV2.comPort.MAV.cs.HomeLocation.Alt;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案6：从设置中获取上次保存的位置
+                    double savedLat = Settings.Instance.GetDouble("maplast_lat");
+                    double savedLng = Settings.Instance.GetDouble("maplast_lng");
+                    if (Math.Abs(savedLat) > 0.001 && Math.Abs(savedLng) > 0.001)
+                    {
+                        lat = savedLat;
+                        lng = savedLng;
+                        hasValidPosition = true;
+                    }
+                }
+
+                if (!hasValidPosition)
+                {
+                    // 方案7：使用默认位置（北京）
+                    lat = 39.9042;
+                    lng = 116.4074;
+                    alt = 30;
+                }
+
+                // 设置目的地默认值
+                txtLLat.Text = lat.ToString("F6");
+                txtLLng.Text = lng.ToString("F6");
+                txtLAlt.Text = alt.ToString("0");
             }
             catch
             {
-                // 如果出错，使用地图中心作为默认值
-                try
-                {
-                    if (MainV2.instance?.FlightPlanner?.MainMap != null)
-                    {
-                        var map = MainV2.instance.FlightPlanner.MainMap;
-                        txtLLat.Text = map.Position.Lat.ToString("F6");
-                        txtLLng.Text = map.Position.Lng.ToString("F6");
-                        txtLAlt.Text = "30";
-                    }
-                }
-                catch { }
+                // 如果出错，使用默认位置
+                txtLLat.Text = "39.904200";
+                txtLLng.Text = "116.407400";
+                txtLAlt.Text = "30";
             }
         }
         

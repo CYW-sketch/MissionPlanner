@@ -2565,7 +2565,7 @@ namespace MissionPlanner.GCSViews
         {
             try
             {
-                Invoke((MethodInvoker) delegate
+                this.InvokeIfRequired((MethodInvoker) delegate
                 {
                     try
                     {
@@ -5203,7 +5203,7 @@ namespace MissionPlanner.GCSViews
 
         private void getWPs(IProgressReporterDialogue sender)
         {
-            var type = (MAVLink.MAV_MISSION_TYPE) Invoke((Func<MAVLink.MAV_MISSION_TYPE>) delegate
+            var type = (MAVLink.MAV_MISSION_TYPE) this.InvokeIfRequired(() =>
             {
                 return (MAVLink.MAV_MISSION_TYPE) cmb_missiontype.SelectedValue;
             });
@@ -6627,7 +6627,7 @@ namespace MissionPlanner.GCSViews
 
             setWPParams();
 
-            var type = (MAVLink.MAV_MISSION_TYPE) Invoke((Func<MAVLink.MAV_MISSION_TYPE>) delegate
+            var type = (MAVLink.MAV_MISSION_TYPE) this.InvokeIfRequired(() =>
             {
                 return (MAVLink.MAV_MISSION_TYPE) cmb_missiontype.SelectedValue;
             });
@@ -7211,7 +7211,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 log.Info("wps values " + MainV2.comPort.MAV.wps.Values.Count);
                 log.Info("cmd rows " + (Commands.Rows.Count + 1)); // + home
 
-                var type = (MAVLink.MAV_MISSION_TYPE) Invoke((Func<MAVLink.MAV_MISSION_TYPE>) delegate
+                var type = (MAVLink.MAV_MISSION_TYPE) this.InvokeIfRequired(() =>
                 {
                     return (MAVLink.MAV_MISSION_TYPE) cmb_missiontype.SelectedValue;
                 });
@@ -8205,7 +8205,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
 
         private void updateMapPosition(PointLatLng currentloc)
         {
-            BeginInvoke((MethodInvoker) delegate
+            this.BeginInvokeIfRequired(() =>
             {
                 try
                 {
@@ -8286,7 +8286,7 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                 return;
 
             // number rows
-            BeginInvoke((MethodInvoker) delegate
+            this.BeginInvokeIfRequired(() =>
             {
                 // thread for updateing row numbers
                 for (int a = 0; a < Commands.Rows.Count - 0; a++)
