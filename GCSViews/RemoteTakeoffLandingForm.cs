@@ -218,7 +218,7 @@ namespace MissionPlanner.Controls
             txtCargoTime = new TextBox { Location = new Point(500, 420), Size = new Size(100, 35), Text = "5", Font = new Font("Microsoft YaHei", 11F) }; // 默认5秒
             // 抛投高度输入框放在第四个选项（空中抛投）右侧
             lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(400, 485), Font = new Font("Microsoft YaHei", 10F) };
-            txtDropHeight = new TextBox { Location = new Point(500, 480), Size = new Size(100, 35), Text = "30", Font = new Font("Microsoft YaHei", 11F) }; // 默认30米
+            txtDropHeight = new TextBox { Location = new Point(500, 480), Size = new Size(100, 35), Text = "10", Font = new Font("Microsoft YaHei", 11F) }; // 默认30米
             
             // 按钮（移到自动写入航点选框上方，完全居中对齐）
             btnOK = new Button { Text = "确定", Location = new Point(185, 540), Size = new Size(140, 45), DialogResult = DialogResult.OK, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };

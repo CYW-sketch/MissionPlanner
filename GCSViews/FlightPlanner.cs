@@ -571,17 +571,17 @@ namespace MissionPlanner.GCSViews
 
                                 // 首次：在该航点前加入起飞指令与起点WAYPOINT
                                 AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.TakeoffAlt, null);
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                                // AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
                                 
                                 // 设置Frame模式（仿地飞行或等高飞行）
                                 if (dlg.TerrainFollowing)
                                 {
-                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Terrain; // TAKEOFF
+                                    // Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Terrain; // TAKEOFF
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain; // WAYPOINT
                             }
                             else
                             {
-                                    Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
+                                    // Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative; // WAYPOINT
                                 }
                             }
@@ -640,7 +640,7 @@ namespace MissionPlanner.GCSViews
                                             // DO_DIGICAM_CONFIGURE 强制使用 Absolute 帧
                                             Commands.Rows[cfgRow].Cells[Frame.Index].Value = altmode.Absolute;
                                         }
-                                        AddCommand(MAVLink.MAV_CMD.LAND, dlg.DropHeight + 3, 0, 0, 1, 0, 0, 0, null);
+                                        AddCommand(MAVLink.MAV_CMD.LAND, 0, 0, 0, 1, 0, 0, 0, null);
                                         break;
                                 }
                                 
