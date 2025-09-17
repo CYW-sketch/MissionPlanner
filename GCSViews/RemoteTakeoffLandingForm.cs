@@ -49,7 +49,7 @@ namespace MissionPlanner.Controls
             // 自动获取地图中心作为起飞点，使用多种方案确保能获取到有效坐标
             try
             {
-                double lat = 0, lng = 0, alt = 30;
+                double lat = 0, lng = 0, alt = 20;
                 bool hasValidPosition = false;
 
                 // 方案1：优先使用FlightPlanner的地图位置（最可靠）
@@ -201,7 +201,7 @@ namespace MissionPlanner.Controls
             var lblLALT = new Label { Text = "飞行高度(米):", AutoSize = true, Location = new Point(25, 305), Font = new Font("Microsoft YaHei", 11F) };
             txtLLng = new TextBox { Location = new Point(150, 210), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
             txtLLat = new TextBox { Location = new Point(150, 255), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
-            txtLAlt = new TextBox { Location = new Point(150, 300), Size = new Size(280, 35), Text = "30", Font = new Font("Microsoft YaHei", 11F) };
+            txtLAlt = new TextBox { Location = new Point(150, 300), Size = new Size(280, 35), Text = "20", Font = new Font("Microsoft YaHei", 11F) };
 
             // 飞行模式组
             var lblFlightModeTitle = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(25, 355), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
@@ -344,7 +344,7 @@ namespace MissionPlanner.Controls
         {
             try
             {
-                double lat = 0, lng = 0, alt = 30;
+                double lat = 0, lng = 0, alt = 20;
                 bool hasValidPosition = false;
 
                 // 方案1：优先获取上一个有效航点的坐标作为目的地默认值

@@ -570,7 +570,7 @@ namespace MissionPlanner.GCSViews
                                 }
 
                                 // 首次：在该航点前加入起飞指令与起点WAYPOINT
-                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.TakeoffAlt, null);
+                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.LandAlt, null);
                                 // AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
                                 
                                 // 设置Frame模式（仿地飞行或等高飞行）
@@ -596,7 +596,7 @@ namespace MissionPlanner.GCSViews
                                 // 如前一段以 LAND 结束，则先起飞
                                 if (needTakeoffBeforeThisSegment)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat,dlg.TakeoffAlt, null);
                                     // 设置TAKEOFF的Frame模式
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
@@ -604,7 +604,7 @@ namespace MissionPlanner.GCSViews
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 }
                                 // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, dlg.LandAlt, null);
                                 // 设置WAYPOINT的Frame模式
                                 if (dlg.TerrainFollowing)
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
@@ -656,14 +656,14 @@ namespace MissionPlanner.GCSViews
                                 // 经过模式：只插入 WAYPOINT（高度默认30）
                                 if (needTakeoffBeforeThisSegment)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, 30, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
                                     // 设置TAKEOFF的Frame模式
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                     else
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 }
-                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, 30, null);
+                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat,dlg.LandAlt, null);
                                 // 设置WAYPOINT的Frame模式
                                 if (dlg.TerrainFollowing)
                                     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
@@ -698,16 +698,26 @@ namespace MissionPlanner.GCSViews
                                         }
                                         if (needTakeoffBeforeRTL)
                                         {
-                                            AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, 30, null);
-                                            // 设置TAKEOFF的Frame模式
+                                            //如果是高空抛投模式
+                                            if (dlg.SelectedLandingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop)
+                                            {
+                                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat,dlg.LandAlt, null);
+                                            }
+                                            else
+                                            {
+                                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0,dlg.LandAlt, null);
+                                            }
+                                            //获取上一个点的高度
+                                            // double lastAlt = toDoubleOrZero(Commands.Rows[Commands.Rows.Count - 1].Cells[Alt.Index].Value);
+                                            // 设置Frame模式
                                             if (dlg.TerrainFollowing)
                                                 Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                             else
                                                 Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                         }
                                         AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
-                        // 返航指令默认使用Absolute模式
-                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                                        // 返航指令默认使用Absolute模式
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
                                     }
                                 }
                             }
