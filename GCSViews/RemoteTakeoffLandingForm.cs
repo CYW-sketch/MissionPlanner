@@ -36,10 +36,11 @@ namespace MissionPlanner.Controls
 
         TextBox txtTLat, txtTLng, txtTAlt, txtLLat, txtLLng, txtLAlt, txtLandingHeight, txtCargoTime, txtDropHeight;
         RadioButton rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop;
-        CheckBox chkSetAsHome, chkWriteWaypoints;
-        RadioButton rbTerrainFollowing, rbRelativeFollowing;
+        CheckBox chkSetAsHome, chkWriteWaypoints, chkTerrainFollowing;
+        // RadioButton rbTerrainFollowing, rbRelativeFollowing;  // 已注释掉，替换为复选框
         Button btnOK, btnCancel;
-        Label lblCargoTime, lblDropHeight;
+        // Label lblCargoTime,  // 已集成到第三个选项中，不再需要独立标签
+        // Label lblDropHeight,  // 已集成到第四个选项中，不再需要独立标签
 
         public RemoteTakeoffLandingForm()
         {
@@ -168,9 +169,9 @@ namespace MissionPlanner.Controls
                 UpdateLandingOptionsVisibility();
                 
                 // 调整按钮位置（因为界面更紧凑了）
-                btnOK.Location = new Point(185, 540);
-                btnCancel.Location = new Point(345, 540);
-                this.ClientSize = new Size(650, 680);
+                btnOK.Location = new Point(185, 390);
+                btnCancel.Location = new Point(345, 390);
+                this.ClientSize = new Size(650, 520);
             }
             catch { }
         }
@@ -183,61 +184,70 @@ namespace MissionPlanner.Controls
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterParent;
 
-            // 起飞点信息显示（只读，自动获取）
-            var lblTakeoffTitle = new Label { Text = "起飞点（自动获取）", AutoSize = true, Location = new Point(25, 25), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            var lblTakeoffInfo = new Label { Text = "经度: --, 纬度: --, 高度: 30米", AutoSize = true, Location = new Point(25, 55), ForeColor = Color.DarkBlue, Font = new Font("Microsoft YaHei", 11F) };
+            // 起飞点信息显示（只读，自动获取）- 已注释掉，不再显示
+            // var lblTakeoffTitle = new Label { Text = "起飞点（自动获取）", AutoSize = true, Location = new Point(25, 25), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            // var lblTakeoffInfo = new Label { Text = "经度: --, 纬度: --, 高度: 30米", AutoSize = true, Location = new Point(25, 55), ForeColor = Color.DarkBlue, Font = new Font("Microsoft YaHei", 11F) };
 
-            // 飞行选项组
-            var lblFlightOptionsTitle = new Label { Text = "飞行选项", AutoSize = true, Location = new Point(25, 90), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            var flightOptionsPanel = new Panel { Location = new Point(20, 115), Size = new Size(580, 50) };
-            rbTerrainFollowing = new RadioButton { Text = "默认仿地飞行", AutoSize = true, Location = new Point(10, 12), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
-            rbRelativeFollowing = new RadioButton { Text = "启用定高飞行", AutoSize = true, Location = new Point(250, 12), Font = new Font("Microsoft YaHei", 11F) };
-            flightOptionsPanel.Controls.AddRange(new Control[] { rbTerrainFollowing, rbRelativeFollowing });
+            // 飞行选项组 - 已注释掉，不再显示
+            // var lblFlightOptionsTitle = new Label { Text = "飞行选项", AutoSize = true, Location = new Point(25, 90), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            // var flightOptionsPanel = new Panel { Location = new Point(20, 115), Size = new Size(580, 50) };
+            // rbTerrainFollowing = new RadioButton { Text = "默认仿地飞行", AutoSize = true, Location = new Point(10, 12), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
+            // rbRelativeFollowing = new RadioButton { Text = "启用定高飞行", AutoSize = true, Location = new Point(250, 12), Font = new Font("Microsoft YaHei", 11F) };
+            // flightOptionsPanel.Controls.AddRange(new Control[] { rbTerrainFollowing, rbRelativeFollowing });
 
             // 目的地输入（用户需要输入的部分）
-            var lblDestinationTitle = new Label { Text = "目的地", AutoSize = true, Location = new Point(25, 180), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(25, 215), Font = new Font("Microsoft YaHei", 11F) };
-            var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(25, 260), Font = new Font("Microsoft YaHei", 11F) };
-            var lblLALT = new Label { Text = "飞行高度(米):", AutoSize = true, Location = new Point(25, 305), Font = new Font("Microsoft YaHei", 11F) };
-            txtLLng = new TextBox { Location = new Point(150, 210), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
-            txtLLat = new TextBox { Location = new Point(150, 255), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
-            txtLAlt = new TextBox { Location = new Point(150, 300), Size = new Size(280, 35), Text = "20", Font = new Font("Microsoft YaHei", 11F) };
+            var lblDestinationTitle = new Label { Text = "目的地", AutoSize = true, Location = new Point(25, 25), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            var lblLLNG = new Label { Text = "经度:", AutoSize = true, Location = new Point(25, 60), Font = new Font("Microsoft YaHei", 11F) };
+            var lblLLAT = new Label { Text = "纬度:", AutoSize = true, Location = new Point(25, 105), Font = new Font("Microsoft YaHei", 11F) };
+            var lblLALT = new Label { Text = "飞行高度(米):", AutoSize = true, Location = new Point(25, 150), Font = new Font("Microsoft YaHei", 11F) };
+            txtLLng = new TextBox { Location = new Point(150, 55), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
+            txtLLat = new TextBox { Location = new Point(150, 100), Size = new Size(280, 35), Text = "0", Font = new Font("Microsoft YaHei", 11F) };
+            txtLAlt = new TextBox { Location = new Point(150, 145), Size = new Size(280, 35), Text = "20", Font = new Font("Microsoft YaHei", 11F) };
+            
+            // 仿地飞行复选框（放在飞行高度输入框右侧）
+            chkTerrainFollowing = new CheckBox { Text = "启用仿地飞行", AutoSize = true, Location = new Point(450, 150), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
 
             // 飞行模式组
-            var lblFlightModeTitle = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(25, 355), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            var flightModePanel = new Panel { Location = new Point(20, 380), Size = new Size(350, 140) };
+            var lblFlightModeTitle = new Label { Text = "飞行模式", AutoSize = true, Location = new Point(25, 200), Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            var flightModePanel = new Panel { Location = new Point(20, 225), Size = new Size(350, 140) };
             rbPassThrough = new RadioButton { Text = "经过航点（不降落）", AutoSize = true, Location = new Point(10, 5), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
             rbLandGround = new RadioButton { Text = "降落地面，按键返航", AutoSize = true, Location = new Point(10, 35), Font = new Font("Microsoft YaHei", 11F) };
-            rbLandCargo = new RadioButton { Text = "降落地面，释放货物____秒后返航", AutoSize = true, Location = new Point(10, 65), Font = new Font("Microsoft YaHei", 11F) };
-            rbLandDrop = new RadioButton { Text = "空中抛投(需填写抛投高度)", AutoSize = true, Location = new Point(10, 95), Font = new Font("Microsoft YaHei", 11F) };
-            flightModePanel.Controls.AddRange(new Control[] { rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop });
+            rbLandCargo = new RadioButton { Text = "降落地面，释放货物", AutoSize = true, Location = new Point(10, 65), Font = new Font("Microsoft YaHei", 11F) };
+            rbLandDrop = new RadioButton { Text = "空中", AutoSize = true, Location = new Point(10, 95), Font = new Font("Microsoft YaHei", 11F) };
+            
+            // 等待时间输入框和标签（放在第三个选项的文本后面）
+            txtCargoTime = new TextBox { Location = new Point(170, 68), Size = new Size(50, 25), Text = "5", Font = new Font("Microsoft YaHei", 11F) };
+            var lblCargoTimeSuffix = new Label { Text = "秒后返航", AutoSize = true, Location = new Point(220, 68), Font = new Font("Microsoft YaHei", 11F) };
+            
+            // 抛投高度输入框和标签（放在第四个选项的文本中间）
+            txtDropHeight = new TextBox { Location = new Point(65, 98), Size = new Size(50, 25), Text = "10", Font = new Font("Microsoft YaHei", 11F) };
+            var lblDropHeightSuffix = new Label { Text = "米抛投", AutoSize = true, Location = new Point(120, 97), Font = new Font("Microsoft YaHei", 11F) };
+            
+            flightModePanel.Controls.AddRange(new Control[] { rbPassThrough, rbLandGround, rbLandCargo, rbLandDrop, txtCargoTime, lblCargoTimeSuffix, txtDropHeight, lblDropHeightSuffix });
             
             // 降落参数输入（移动到对应选项右侧）
-            // 等待时间输入框放在第三个选项（降落地面，释放货物后返航）右侧
-            lblCargoTime = new Label { Text = "等待时间(秒):", AutoSize = true, Location = new Point(400, 425), Font = new Font("Microsoft YaHei", 10F) };
-            txtCargoTime = new TextBox { Location = new Point(500, 420), Size = new Size(100, 35), Text = "5", Font = new Font("Microsoft YaHei", 11F) }; // 默认5秒
-            // 抛投高度输入框放在第四个选项（空中抛投）右侧
-            lblDropHeight = new Label { Text = "抛投高度(米):", AutoSize = true, Location = new Point(400, 485), Font = new Font("Microsoft YaHei", 10F) };
-            txtDropHeight = new TextBox { Location = new Point(500, 480), Size = new Size(100, 35), Text = "10", Font = new Font("Microsoft YaHei", 11F) }; // 默认30米
+            // 等待时间输入框已集成到第三个选项中，不再需要独立的标签和输入框
+            // 抛投高度输入框已集成到第四个选项中，不再需要独立的标签和输入框
             
             // 按钮（移到自动写入航点选框上方，完全居中对齐）
-            btnOK = new Button { Text = "确定", Location = new Point(185, 540), Size = new Size(140, 45), DialogResult = DialogResult.OK, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
-            btnCancel = new Button { Text = "取消", Location = new Point(345, 540), Size = new Size(140, 45), DialogResult = DialogResult.Cancel, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            btnOK = new Button { Text = "确定", Location = new Point(185, 390), Size = new Size(140, 45), DialogResult = DialogResult.OK, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
+            btnCancel = new Button { Text = "取消", Location = new Point(345, 390), Size = new Size(140, 45), DialogResult = DialogResult.Cancel, Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold) };
             
             // 写入航点选项（移到按钮下方）
-            chkWriteWaypoints = new CheckBox { Text = "自动写入航点并读取", AutoSize = true, Location = new Point(25, 600), Checked = IsConnected(), Font = new Font("Microsoft YaHei", 11F) };
-            var lblWaypointTip = new Label { Text = "※ 选中后按下确定将自动写入航点到飞行器并读取航点列表", AutoSize = true, Location = new Point(25, 630), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 10F) };
+            chkWriteWaypoints = new CheckBox { Text = "自动写入航点并读取", AutoSize = true, Location = new Point(25, 450), Checked = IsConnected(), Font = new Font("Microsoft YaHei", 11F) };
+            var lblWaypointTip = new Label { Text = "※ 选中后按下确定将自动写入航点到飞行器并读取航点列表", AutoSize = true, Location = new Point(25, 480), ForeColor = Color.Gray, Font = new Font("Microsoft YaHei", 10F) };
             btnOK.Click += BtnOK_Click;
 
             this.AcceptButton = btnOK;
             this.CancelButton = btnCancel;
-            this.ClientSize = new Size(650, 680);
+            this.ClientSize = new Size(650, 520);
             this.Controls.AddRange(new Control[] { 
-                lblTakeoffTitle, lblTakeoffInfo,
-                lblFlightOptionsTitle, flightOptionsPanel,
-                lblDestinationTitle, lblLLAT, lblLLNG, lblLALT, txtLLat, txtLLng, txtLAlt,
+                // lblTakeoffTitle, lblTakeoffInfo,  // 已注释掉
+                // lblFlightOptionsTitle, flightOptionsPanel,  // 已注释掉
+                lblDestinationTitle, lblLLAT, lblLLNG, lblLALT, txtLLat, txtLLng, txtLAlt, chkTerrainFollowing,
                 lblFlightModeTitle, flightModePanel,
-                lblCargoTime, txtCargoTime, lblDropHeight, txtDropHeight,
+                // txtCargoTime, lblCargoTimeSuffix,  // 已集成到飞行模式面板中
+                // txtDropHeight, lblDropHeightSuffix,  // 已集成到飞行模式面板中
                 chkWriteWaypoints, lblWaypointTip,
                 btnOK, btnCancel 
             });
@@ -276,11 +286,8 @@ namespace MissionPlanner.Controls
             LandLat = double.Parse(txtLLat.Text);
             LandLng = double.Parse(txtLLng.Text);
             LandAlt = double.Parse(txtLAlt.Text);
-            // 设置飞行模式
-            if (rbTerrainFollowing.Checked)
-                TerrainFollowing = true;
-            else if (rbRelativeFollowing.Checked)
-                TerrainFollowing = false;
+            // 设置飞行模式（复选框：勾选=仿地飞行，未勾选=定高飞行）
+            TerrainFollowing = chkTerrainFollowing.Checked;
             
             // 设置降落模式
             if (rbPassThrough.Checked)
@@ -483,28 +490,28 @@ namespace MissionPlanner.Controls
             if (rbLandCargo.Checked)
             {
                 txtCargoTime.Enabled = true;
-                // txtCargoTime.BackColor = SystemColors.Window;
                 txtCargoTime.ReadOnly = false;
+                // txtCargoTime.BackColor = SystemColors.Window;
             }
             else
             {
                 txtCargoTime.Enabled = true; // 保持启用状态，确保可见
-                // txtCargoTime.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色
                 txtCargoTime.ReadOnly = true;
+                // txtCargoTime.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色
             }
             
             // 抛投高度输入框：只在选择"高空抛投"时可用
             if (rbLandDrop.Checked)
             {
                 txtDropHeight.Enabled = true;
-                // txtDropHeight.BackColor = SystemColors.Window;
                 txtDropHeight.ReadOnly = false;
+                // txtDropHeight.BackColor = SystemColors.Window;
             }
             else
             {
                 txtDropHeight.Enabled = true; // 保持启用状态，确保可见
-                // txtDropHeight.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色
                 txtDropHeight.ReadOnly = true;
+                // txtDropHeight.BackColor = Color.FromArgb(240, 240, 240); // 锁定状态的浅灰色/
             }
             
             // 强制刷新控件显示
@@ -514,12 +521,12 @@ namespace MissionPlanner.Controls
         
         private void UpdateTakeoffInfo()
         {
-            // 更新起飞点显示信息
-            var lblTakeoffInfo = this.Controls.OfType<Label>().FirstOrDefault(l => l.Text.Contains("经度: --"));
-            if (lblTakeoffInfo != null)
-            {
-                lblTakeoffInfo.Text = $"经度: {TakeoffLng:F6}, 纬度: {TakeoffLat:F6}, 高度: {TakeoffAlt}米";
-            }
+            // 更新起飞点显示信息 - 已注释掉起飞点显示，此方法保留但不再执行
+            // var lblTakeoffInfo = this.Controls.OfType<Label>().FirstOrDefault(l => l.Text.Contains("经度: --"));
+            // if (lblTakeoffInfo != null)
+            // {
+            //     lblTakeoffInfo.Text = $"经度: {TakeoffLng:F6}, 纬度: {TakeoffLat:F6}, 高度: {TakeoffAlt}米";
+            // }
         }
         
         private bool IsConnected()

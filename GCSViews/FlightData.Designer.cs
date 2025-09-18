@@ -1105,28 +1105,28 @@ namespace MissionPlanner.GCSViews
             resources.ApplyResources(this.panelWaypointControls, "panelWaypointControls");
             this.panelWaypointControls.Name = "panelWaypointControls";
             // 
-            // btnAddWaypoint
+            // btnAddWaypoint，添加航点
             // 
             resources.ApplyResources(this.btnAddWaypoint, "btnAddWaypoint");
             this.btnAddWaypoint.Name = "btnAddWaypoint";
             this.btnAddWaypoint.UseVisualStyleBackColor = true;
             this.btnAddWaypoint.Click += new System.EventHandler(this.btnAddWaypoint_Click);
             // 
-            // btnDeleteWaypoint
+            // btnDeleteWaypoint，删除航点
             // 
             resources.ApplyResources(this.btnDeleteWaypoint, "btnDeleteWaypoint");
             this.btnDeleteWaypoint.Name = "btnDeleteWaypoint";
             this.btnDeleteWaypoint.UseVisualStyleBackColor = true;
             this.btnDeleteWaypoint.Click += new System.EventHandler(this.btnDeleteWaypoint_Click);
             // 
-            // btnRemoteTakeoffLanding
+            // btnRemoteTakeoffLanding，远程起飞降落
             // 
             resources.ApplyResources(this.btnRemoteTakeoffLanding, "btnRemoteTakeoffLanding");
             this.btnRemoteTakeoffLanding.Name = "btnRemoteTakeoffLanding";
             this.btnRemoteTakeoffLanding.UseVisualStyleBackColor = true;
             this.btnRemoteTakeoffLanding.Click += new System.EventHandler(this.btnRemoteTakeoffLanding_Click);
             // 
-            // btnSetAsRemoteTakeoffLanding
+            // btnSetAsRemoteTakeoffLanding，设置为远程起飞降落
             // 
             resources.ApplyResources(this.btnSetAsRemoteTakeoffLanding, "btnSetAsRemoteTakeoffLanding");
             this.btnSetAsRemoteTakeoffLanding.Name = "btnSetAsRemoteTakeoffLanding";
