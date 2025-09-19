@@ -34,6 +34,7 @@ namespace MissionPlanner.GCSViews
             this.customizeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.multiLineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabControlactions = new System.Windows.Forms.TabControl();
+            this.tabRemoteTakeoffLanding = new System.Windows.Forms.TabPage();
             this.tabQuick = new System.Windows.Forms.TabPage();
             this.tableLayoutPanelQuick = new System.Windows.Forms.TableLayoutPanel();
             this.quickView6 = new MissionPlanner.Controls.QuickView();
@@ -600,6 +601,7 @@ namespace MissionPlanner.GCSViews
             this.tabControlactions.ContextMenuStrip = this.contextMenuStripactionstab;
             this.tabControlactions.Controls.Add(this.tabQuick);
             this.tabControlactions.Controls.Add(this.tabActions);
+            this.tabControlactions.Controls.Add(this.tabRemoteTakeoffLanding);
             this.tabControlactions.Controls.Add(this.tabPageWaypoints);
             this.tabControlactions.Controls.Add(this.tabPagemessages);
             this.tabControlactions.Controls.Add(this.tabActionsSimple);
@@ -618,6 +620,13 @@ namespace MissionPlanner.GCSViews
             this.tabControlactions.SelectedIndex = 0;
             this.tabControlactions.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.tabControl1_DrawItem);
             this.tabControlactions.SelectedIndexChanged += new System.EventHandler(this.tabControl1_SelectedIndexChanged);
+            // 
+            // tabRemoteTakeoffLanding
+            // 
+            resources.ApplyResources(this.tabRemoteTakeoffLanding, "tabRemoteTakeoffLanding");
+            this.tabRemoteTakeoffLanding.Name = "tabRemoteTakeoffLanding";
+            this.tabRemoteTakeoffLanding.UseVisualStyleBackColor = true;
+            this.tabRemoteTakeoffLanding.Text = "异地起降";
             // 
             // tabQuick
             // 
@@ -3162,6 +3171,7 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton but_dflogtokml;
         private Controls.MyButton BUT_DFMavlink;
         public System.Windows.Forms.TabPage tabPageWaypoints;
+        public System.Windows.Forms.TabPage tabRemoteTakeoffLanding;
         private System.Windows.Forms.Panel panelWaypointControls;
         private Controls.MyButton btnAddWaypoint;
         private Controls.MyButton btnDeleteWaypoint;

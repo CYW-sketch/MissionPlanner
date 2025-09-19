@@ -797,39 +797,59 @@ namespace MissionPlanner.GCSViews
             {
                 string[] tabarray = tabs.Split(';');
                 log.Debug("Current tabs: " + string.Join(", ", tabarray));
-                
-                // Check if waypoints tab exists and is in the correct position
-                int waypointsIndex = Array.IndexOf(tabarray, "tabPageWaypoints");
-                int messagesIndex = Array.IndexOf(tabarray, "tabPagemessages");
-                
+
+                // Build a working list we can modify
+                List<string> tabList = new List<string>(tabarray);
+
+                // 1) Ensure waypoints tab exists and is before messages tab
+                int waypointsIndex = tabList.IndexOf("tabPageWaypoints");
+                int messagesIndex = tabList.IndexOf("tabPagemessages");
+
                 if (waypointsIndex < 0)
                 {
-                    // Waypoints tab doesn't exist, add it before messages tab
                     if (messagesIndex >= 0)
                     {
-                        List<string> tabList = new List<string>(tabarray);
                         tabList.Insert(messagesIndex, "tabPageWaypoints");
-                        Settings.Instance["tabcontrolactions"] = string.Join(";", tabList) + ";";
                         log.Debug("Inserted tabPageWaypoints before tabPagemessages");
                     }
                     else
                     {
-                        // If messages tab not found, add waypoints tab at the beginning
-                        Settings.Instance["tabcontrolactions"] = "tabPageWaypoints;" + tabs;
+                        tabList.Insert(0, "tabPageWaypoints");
                         log.Debug("Added tabPageWaypoints at the beginning");
                     }
                 }
                 else if (messagesIndex >= 0 && waypointsIndex > messagesIndex)
                 {
-                    // Waypoints tab exists but is after messages tab, move it before
-                    List<string> tabList = new List<string>(tabarray);
+                    string wp = tabList[waypointsIndex];
                     tabList.RemoveAt(waypointsIndex);
-                    int newIndex = messagesIndex;
-                    if (waypointsIndex < messagesIndex) newIndex--; // Adjust index if we removed an earlier item
-                    tabList.Insert(newIndex, "tabPageWaypoints");
-                    Settings.Instance["tabcontrolactions"] = string.Join(";", tabList) + ";";
+                    // messagesIndex may change if we removed before it
+                    int insertIndex = tabList.IndexOf("tabPagemessages");
+                    if (insertIndex < 0) insertIndex = 0;
+                    tabList.Insert(insertIndex, wp);
                     log.Debug("Moved tabPageWaypoints before tabPagemessages");
                 }
+
+                // 2) Ensure new tab 'tabRemoteTakeoffLanding' exists and is before waypoints tab
+                int remoteIndex = tabList.IndexOf("tabRemoteTakeoffLanding");
+                waypointsIndex = tabList.IndexOf("tabPageWaypoints");
+
+                if (remoteIndex < 0)
+                {
+                    int insertBefore = Math.Max(0, waypointsIndex);
+                    tabList.Insert(insertBefore, "tabRemoteTakeoffLanding");
+                    log.Debug("Inserted tabRemoteTakeoffLanding before tabPageWaypoints");
+                }
+                else if (waypointsIndex >= 0 && remoteIndex > waypointsIndex)
+                {
+                    string remote = tabList[remoteIndex];
+                    tabList.RemoveAt(remoteIndex);
+                    waypointsIndex = tabList.IndexOf("tabPageWaypoints");
+                    int insertIndex = Math.Max(0, waypointsIndex);
+                    tabList.Insert(insertIndex, remote);
+                    log.Debug("Moved tabRemoteTakeoffLanding before tabPageWaypoints");
+                }
+
+                Settings.Instance["tabcontrolactions"] = string.Join(";", tabList) + ";";
             }
             else
             {
