@@ -207,13 +207,13 @@ namespace MissionPlanner.Controls
             var flightSpeedPanel = new Panel { Location = new Point(150, 200), Size = new Size(450, 60) };
             rbLowSpeed = new RadioButton { Text = "慢速", AutoSize = true, Location = new Point(10, 5), Checked = true, Font = new Font("Microsoft YaHei", 11F) };
             rbMediumSpeed = new RadioButton { Text = "中速", AutoSize = true, Location = new Point(150, 5), Font = new Font("Microsoft YaHei", 11F) };
-            rbHighSpeed = new RadioButton { Text = "高速", AutoSize = true, Location = new Point(290, 5), Font = new Font("Microsoft YaHei", 11F) };
+            rbHighSpeed = new RadioButton { Text = "快速", AutoSize = true, Location = new Point(290, 5), Font = new Font("Microsoft YaHei", 11F) };
             
             // 速度提示标签
             var lblLowSpeedTip = new Label { Text = "5米/秒", AutoSize = true, Location = new Point(10, 35), ForeColor = Color.DarkBlue, Font = new Font("Microsoft YaHei", 10F) };
             var lblMediumSpeedTip = new Label { Text = "10米/秒", AutoSize = true, Location = new Point(150, 35), ForeColor = Color.DarkBlue, Font = new Font("Microsoft YaHei", 10F) };
             var lblHighSpeedTip = new Label { Text = "15米/秒", AutoSize = true, Location = new Point(290, 35), ForeColor = Color.DarkBlue, Font = new Font("Microsoft YaHei", 10F) };
-            var lblHighSpeedWarning = new Label { Text = "[请谨慎使用]", AutoSize = true, Location = new Point(350, 35), ForeColor = Color.Red, Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold) };
+            var lblHighSpeedWarning = new Label { Text = "[请慎重使用]", AutoSize = true, Location = new Point(350, 35), ForeColor = Color.Red, Font = new Font("Microsoft YaHei", 10F) };
             
             flightSpeedPanel.Controls.AddRange(new Control[] { rbLowSpeed, rbMediumSpeed, rbHighSpeed, lblLowSpeedTip, lblMediumSpeedTip, lblHighSpeedTip, lblHighSpeedWarning });
 
