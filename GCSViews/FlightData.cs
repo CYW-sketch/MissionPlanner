@@ -6796,10 +6796,22 @@ namespace MissionPlanner.GCSViews
                     MainV2.instance.FlightPlanner.Commands.Rows.Clear();
                     // selectedrow是私有字段，无法直接访问，但清空后会自动重置
                     MainV2.instance.FlightPlanner.quickadd = false;
-                    MainV2.instance.FlightPlanner.writeKML();
-                    
-                    CustomMessageBox.Show("所有航点已清空。", "清空成功", 
-                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+					MainV2.instance.FlightPlanner.writeKML();
+					
+					// 如果已连接飞行器，则在清空后同步写入并读取航点（将清空任务写入飞行器）
+					if (MainV2.comPort?.BaseStream?.IsOpen == true)
+					{
+						try
+						{
+							MainV2.instance.FlightPlanner.BUT_write_Click(null, null);
+							System.Threading.Thread.Sleep(1000);
+							MainV2.instance.FlightPlanner.BUT_read_Click(null, null);
+						}
+						catch { }
+					}
+					
+					CustomMessageBox.Show("所有航点已清空。", "清空成功", 
+						CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
@@ -6953,6 +6965,8 @@ namespace MissionPlanner.GCSViews
             }
         }
 
+        // 设置为异地起降按钮点击事件 - 已注释掉，不再需要此功能
+        /*
         private void btnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
             try
@@ -6974,6 +6988,7 @@ namespace MissionPlanner.GCSViews
                     CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
             }
         }
+        */
 
         private void btnStartDelivery_Click(object sender, EventArgs e)
         {

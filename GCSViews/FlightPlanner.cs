@@ -143,8 +143,8 @@ namespace MissionPlanner.GCSViews
         private MyButton btnClearCoordinates;
         // 右侧面板：异地起降按钮
         private MyButton btnRemoteTakeoffLanding;
-        // 右侧面板：设置为异地起降按钮
-        private MyButton btnSetAsRemoteTakeoffLanding;
+        // 右侧面板：设置为异地起降按钮 - 已注释掉，不再需要此功能
+        // private MyButton btnSetAsRemoteTakeoffLanding;
 
 
         public void Init()
@@ -249,8 +249,8 @@ namespace MissionPlanner.GCSViews
 
             // 在右侧面板添加"异地起降"按钮
             InitializeRemoteTakeoffLandingButton();
-            // 在右侧面板添加"设置为异地起降"按钮
-            InitializeSetAsRemoteTakeoffLandingButton();
+            // 在右侧面板添加"设置为异地起降"按钮 - 已注释掉，不再需要此功能
+            // InitializeSetAsRemoteTakeoffLandingButton();
 
             cmb_missiontype.DataSource = new List<MAVLink.MAV_MISSION_TYPE>()
                 {MAVLink.MAV_MISSION_TYPE.MISSION, MAVLink.MAV_MISSION_TYPE.FENCE, MAVLink.MAV_MISSION_TYPE.RALLY};
@@ -336,7 +336,8 @@ namespace MissionPlanner.GCSViews
             catch { }
         }
 
-        // 在右侧面板添加"设置为异地起降"按钮
+        // 在右侧面板添加"设置为异地起降"按钮 - 已注释掉，不再需要此功能
+        /*
         private void InitializeSetAsRemoteTakeoffLandingButton()
         {
             try
@@ -367,8 +368,10 @@ namespace MissionPlanner.GCSViews
             }
             catch { }
         }
+        */
 
-        //设置为异地起降按钮点击事件
+        //设置为异地起降按钮点击事件 - 已注释掉，不再需要此功能
+        /*
         public void BtnSetAsRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
             try
@@ -428,6 +431,7 @@ namespace MissionPlanner.GCSViews
                 CustomMessageBox.Show("设置异地起降模式时发生错误: " + ex.Message, "错误");
             }
         }
+        */
 
         public void BtnRemoteTakeoffLanding_Click(object sender, EventArgs e)
         {
@@ -571,6 +575,10 @@ namespace MissionPlanner.GCSViews
 
                                 // 首次：在该航点前加入起飞指令与起点WAYPOINT
                                 AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0,0, dlg.LandAlt, null);
+                                
+                                // 在起飞指令后添加速度设置指令
+                                AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                                
                                 // AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
                                 
                                 // 设置Frame模式（仿地飞行或等高飞行）
@@ -597,11 +605,15 @@ namespace MissionPlanner.GCSViews
                                 if (needTakeoffBeforeThisSegment)
                                 {
                                     AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat,dlg.TakeoffAlt, null);
+                                    
+                                    // 在起飞指令后添加速度设置指令
+                                    AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                                    
                                     // 设置TAKEOFF的Frame模式
                                     if (dlg.TerrainFollowing)
-                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                        Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Terrain; // TAKEOFF
                                     else
-                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                                        Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
                                 }
                                 // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
                                 AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, dlg.LandAlt, null);
@@ -778,6 +790,8 @@ namespace MissionPlanner.GCSViews
             }
         }
 
+        // 配置现有航点为异地起降模式 - 已注释掉，不再需要此功能
+        /*
         private void ConfigureExistingWaypointsAsRemoteTakeoffLanding()
         {
             try
@@ -865,7 +879,10 @@ namespace MissionPlanner.GCSViews
                 CustomMessageBox.Show("配置异地起降模式时发生错误: " + ex.Message, "错误");
             }
         }
+        */
 
+        // 重新配置现有异地起降模式 - 已注释掉，不再需要此功能
+        /*
         private void ReconfigureExistingRemoteTakeoffLanding()
         {
             try
@@ -968,6 +985,7 @@ namespace MissionPlanner.GCSViews
                 CustomMessageBox.Show("重新配置异地起降模式时发生错误: " + ex.Message, "错误");
             }
         }
+        */
 
 
         public static FlightPlanner instance { get; set; }
@@ -1342,8 +1360,20 @@ namespace MissionPlanner.GCSViews
                             Commands.Rows.Clear();
                         }
                         
-                        UpdateCoordinateButtonText();
-                        
+						UpdateCoordinateButtonText();
+						
+						// 如果已连接飞行器，则在清除后同步写入并读取航点（将清空任务写入飞行器）
+						if (MainV2.comPort?.BaseStream?.IsOpen == true)
+						{
+							try
+							{
+								BUT_write_Click(null, null);
+								System.Threading.Thread.Sleep(1000);
+								BUT_read_Click(null, null);
+							}
+							catch { }
+						}
+						
                         string successMessage = "已清除所有";
                         if (hasMarkers && hasWaypoints)
                         {
@@ -1633,6 +1663,10 @@ namespace MissionPlanner.GCSViews
                     
                     // 添加TAKEOFF指令
                     AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.TakeoffAlt, null);
+                    
+                    // 在起飞指令后添加速度设置指令
+                    AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                    
                     // 添加起点WAYPOINT
                     AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
                 }
@@ -1655,6 +1689,9 @@ namespace MissionPlanner.GCSViews
                     {
                         needTakeoffBeforeThisSegment = true;
                         AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.TakeoffAlt, null);
+                        
+                        // 在起飞指令后添加速度设置指令
+                        AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
                     }
                 }
 
@@ -3315,6 +3352,18 @@ namespace MissionPlanner.GCSViews
             selectedrow = 0;
             quickadd = false;
             writeKML();
+			
+			// 如果已连接飞行器，则在清除后同步写入并读取航点（将清空任务写入飞行器）
+			if (MainV2.comPort?.BaseStream?.IsOpen == true)
+			{
+				try
+				{
+					BUT_write_Click(null, null);
+					System.Threading.Thread.Sleep(1000);
+					BUT_read_Click(null, null);
+				}
+				catch { }
+			}
         }
 
         public void clearPolygonToolStripMenuItem_Click(object sender, EventArgs e)

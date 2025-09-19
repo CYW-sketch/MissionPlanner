@@ -76,7 +76,7 @@ namespace MissionPlanner.GCSViews
             this.btnAddWaypoint = new MissionPlanner.Controls.MyButton();
             this.btnDeleteWaypoint = new MissionPlanner.Controls.MyButton();
             this.btnRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton();
-            this.btnSetAsRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton();
+            // this.btnSetAsRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton(); // 已注释掉，不再需要此功能
             this.btnStartDelivery = new MissionPlanner.Controls.MyButton();
             this.tabPagemessages = new System.Windows.Forms.TabPage();
             this.txt_messagebox = new System.Windows.Forms.TextBox();
@@ -1100,7 +1100,7 @@ namespace MissionPlanner.GCSViews
             this.panelWaypointControls.Controls.Add(this.btnAddWaypoint);
             this.panelWaypointControls.Controls.Add(this.btnDeleteWaypoint);
             this.panelWaypointControls.Controls.Add(this.btnRemoteTakeoffLanding);
-            this.panelWaypointControls.Controls.Add(this.btnSetAsRemoteTakeoffLanding);
+            // this.panelWaypointControls.Controls.Add(this.btnSetAsRemoteTakeoffLanding); // 已注释掉，不再需要此功能
             this.panelWaypointControls.Controls.Add(this.btnStartDelivery);
             resources.ApplyResources(this.panelWaypointControls, "panelWaypointControls");
             this.panelWaypointControls.Name = "panelWaypointControls";
@@ -1126,12 +1126,13 @@ namespace MissionPlanner.GCSViews
             this.btnRemoteTakeoffLanding.UseVisualStyleBackColor = true;
             this.btnRemoteTakeoffLanding.Click += new System.EventHandler(this.btnRemoteTakeoffLanding_Click);
             // 
-            // btnSetAsRemoteTakeoffLanding，设置为远程起飞降落
-            // 
+            // btnSetAsRemoteTakeoffLanding，设置为远程起飞降落 - 已注释掉，不再需要此功能
+            /*
             resources.ApplyResources(this.btnSetAsRemoteTakeoffLanding, "btnSetAsRemoteTakeoffLanding");
             this.btnSetAsRemoteTakeoffLanding.Name = "btnSetAsRemoteTakeoffLanding";
             this.btnSetAsRemoteTakeoffLanding.UseVisualStyleBackColor = true;
             this.btnSetAsRemoteTakeoffLanding.Click += new System.EventHandler(this.btnSetAsRemoteTakeoffLanding_Click);
+            */
             // 
             // btnStartDelivery
             // 
@@ -3165,7 +3166,7 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton btnAddWaypoint;
         private Controls.MyButton btnDeleteWaypoint;
         private Controls.MyButton btnRemoteTakeoffLanding;
-        private Controls.MyButton btnSetAsRemoteTakeoffLanding;
+        // private Controls.MyButton btnSetAsRemoteTakeoffLanding; // 已注释掉，不再需要此功能
         private Controls.MyButton btnStartDelivery;
         public System.Windows.Forms.TabPage tabPagemessages;
         private System.Windows.Forms.TextBox txt_messagebox;

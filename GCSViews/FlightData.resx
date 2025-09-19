@@ -1545,6 +1545,7 @@
   <data name="&gt;&gt;btnRemoteTakeoffLanding.ZOrder" xml:space="preserve">
     <value>2</value>
   </data>
+  <!-- 设置为异地起降按钮 - 已注释掉，不再需要此功能
   <data name="btnSetAsRemoteTakeoffLanding.Location" type="System.Drawing.Point, System.Drawing">
     <value>120, 50</value>
   </data>
@@ -1569,6 +1570,7 @@
   <data name="&gt;&gt;btnSetAsRemoteTakeoffLanding.ZOrder" xml:space="preserve">
     <value>3</value>
   </data>
+  -->
   <data name="btnStartDelivery.Location" type="System.Drawing.Point, System.Drawing">
     <value>10, 90</value>
   </data>
