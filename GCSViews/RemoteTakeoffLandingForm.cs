@@ -180,7 +180,7 @@ namespace MissionPlanner.Controls
 
         private void InitializeComponent()
         {
-            this.Text = "广东梵亚异地起降";
+            this.Text = "广东梵亚无人机异地起降";
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
