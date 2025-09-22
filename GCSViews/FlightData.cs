@@ -238,6 +238,20 @@ namespace MissionPlanner.GCSViews
 
             InitializeComponent();
 
+            // initialize responsive layout for remote destination panel
+            try
+            {
+                UpdateRemoteDestinationLayout();
+                if (pnlRemoteDestination != null)
+                {
+                    pnlRemoteDestination.Resize += pnlRemoteDestination_Resize;
+                }
+            }
+            catch (Exception)
+            {
+                // ignore if controls not yet created
+            }
+
             log.Info("Components Done");
 
             instance = this;
@@ -255,6 +269,25 @@ namespace MissionPlanner.GCSViews
             mymap = gMapControl1;
             myhud = hud1;
             MainHcopy = MainH;
+
+            // Setup default values and validation for remote mode input boxes
+            try
+            {
+                if (txtDropDelaySec != null)
+                {
+                    txtDropDelaySec.Text = "5"; // default seconds
+                    txtDropDelaySec.KeyPress += OnlyAllowDigits_KeyPress;
+                    txtDropDelaySec.Leave += (s, e) => EnforceMinimumInteger(txtDropDelaySec, 1);
+                }
+
+                if (txtAirDropHeight != null)
+                {
+                    txtAirDropHeight.Text = "10"; // default meters
+                    txtAirDropHeight.KeyPress += OnlyAllowDigits_KeyPress;
+                    txtAirDropHeight.Leave += (s, e) => EnforceMinimumInteger(txtAirDropHeight, 3);
+                }
+            }
+            catch { }
 
             mymap.Paint += mymap_Paint;
 
@@ -420,6 +453,42 @@ namespace MissionPlanner.GCSViews
 
             tabControlactions.Multiline = Settings.Instance.GetBoolean("tabControlactions_Multiline", false);
 
+        }
+        //布局调整
+        private void pnlRemoteDestination_Resize(object sender, EventArgs e)
+        {
+            UpdateRemoteDestinationLayout();
+        }
+
+        private void UpdateRemoteDestinationLayout()
+        {
+            if (pnlRemoteDestination == null || chkRemoteTerrainFollow == null || txtRemoteAlt == null || lblRemoteAlt == null)
+                return;
+
+            // Target positions from .resx as base values
+            int labelX = 10; // aligned with title
+            int altY = txtRemoteAlt.Location.Y; // keep existing Y for height row
+            int inputX = txtRemoteAlt.Location.X; // keep existing input X
+
+            // Compute required width to place checkbox to the left of altitude input
+            int spacing = 12; // gap between elements
+            int availableWidth = pnlRemoteDestination.ClientSize.Width;
+
+            // desired position when wide: to the left of altitude input, right aligned before label/input pair
+            int desiredCheckX = inputX + txtRemoteAlt.Width + spacing;
+            int checkY = altY - 1; // minor visual alignment tweak
+
+            // If not enough space, move checkbox under altitude label
+            int rightPadding = 16; // keep away from right edge
+            bool fitsInline = desiredCheckX + chkRemoteTerrainFollow.Width + rightPadding <= availableWidth;
+            if (fitsInline)
+            {
+                chkRemoteTerrainFollow.Location = new System.Drawing.Point(desiredCheckX, checkY);
+            }
+            else
+            {
+                chkRemoteTerrainFollow.Location = new System.Drawing.Point(labelX, altY + txtRemoteAlt.Height + 12);
+            }
         }
 
         public void Activate()
@@ -7010,6 +7079,16 @@ namespace MissionPlanner.GCSViews
         }
         */
 
+		private void btnRemoteOK_Click(object sender, EventArgs e)
+		{
+			// 逻辑后续追加
+		}
+
+		private void btnRemoteCancel_Click(object sender, EventArgs e)
+		{
+			// 逻辑后续追加
+		}
+
         private void btnStartDelivery_Click(object sender, EventArgs e)
         {
             try
@@ -7075,6 +7154,39 @@ namespace MissionPlanner.GCSViews
                 CustomMessageBox.Show("启动送货任务时发生错误: " + ex.Message, "错误", 
                     CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
             }
+        }
+
+        private void OnlyAllowDigits_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            // allow control keys and digits only
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void EnforceMinimumInteger(TextBox textBox, int minimumValue)
+        {
+            if (textBox == null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                textBox.Text = minimumValue.ToString();
+                return;
+            }
+
+            if (!int.TryParse(textBox.Text, out var value))
+            {
+                value = minimumValue;
+            }
+
+            if (value < minimumValue)
+            {
+                value = minimumValue;
+            }
+
+            textBox.Text = value.ToString();
         }
 
         #endregion

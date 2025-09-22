@@ -1595,6 +1595,609 @@
   <data name="&gt;&gt;btnStartDelivery.ZOrder" xml:space="preserve">
     <value>4</value>
   </data>
+  <data name="pnlRemoteDestination.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 10</value>
+  </data>
+  <data name="pnlRemoteDestination.Size" type="System.Drawing.Size, System.Drawing">
+    <value>520, 450</value>
+  </data>
+  <data name="lblRemoteDestTitle.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 0</value>
+  </data>
+  <data name="lblRemoteDestTitle.Size" type="System.Drawing.Size, System.Drawing">
+    <value>70, 20</value>
+  </data>
+  <data name="lblRemoteDestTitle.Text" xml:space="preserve">
+    <value>目的地</value>
+  </data>
+  <data name=">>lblRemoteDestTitle.Name" xml:space="preserve">
+    <value>lblRemoteDestTitle</value>
+  </data>
+  <data name=">>lblRemoteDestTitle.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblRemoteDestTitle.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblRemoteDestTitle.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name=">>pnlRemoteDestination.Name" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>pnlRemoteDestination.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Panel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>pnlRemoteDestination.Parent" xml:space="preserve">
+    <value>tabRemoteTakeoffLanding</value>
+  </data>
+  <data name=">>pnlRemoteDestination.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="chkRemoteWriteWaypoints.Location" type="System.Drawing.Point, System.Drawing">
+    <value>70, 400</value>
+  </data>
+  <data name="chkRemoteWriteWaypoints.Size" type="System.Drawing.Size, System.Drawing">
+    <value>160, 20</value>
+  </data>
+  <data name="chkRemoteWriteWaypoints.Text" xml:space="preserve">
+    <value>自动写入航点并读取</value>
+  </data>
+  <data name=">>chkRemoteWriteWaypoints.Name" xml:space="preserve">
+    <value>chkRemoteWriteWaypoints</value>
+  </data>
+  <data name=">>chkRemoteWriteWaypoints.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>chkRemoteWriteWaypoints.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>chkRemoteWriteWaypoints.ZOrder" xml:space="preserve">
+    <value>23</value>
+  </data>
+  <data name="lblRemoteWaypointTip.Location" type="System.Drawing.Point, System.Drawing">
+    <value>70, 430</value>
+  </data>
+  <data name="lblRemoteWaypointTip.Size" type="System.Drawing.Size, System.Drawing">
+    <value>460, 40</value>
+  </data>
+  <data name="lblRemoteWaypointTip.Text" xml:space="preserve">
+    <value>※ 选中后按下确定将自动写入航点到飞行器并读取航点列表</value>
+  </data>
+  <data name=">>lblRemoteWaypointTip.Name" xml:space="preserve">
+    <value>lblRemoteWaypointTip</value>
+  </data>
+  <data name=">>lblRemoteWaypointTip.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblRemoteWaypointTip.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblRemoteWaypointTip.ZOrder" xml:space="preserve">
+    <value>24</value>
+  </data>
+  <data name="btnRemoteOK.Location" type="System.Drawing.Point, System.Drawing">
+    <value>70, 350</value>
+  </data>
+  <data name="btnRemoteOK.Size" type="System.Drawing.Size, System.Drawing">
+    <value>120, 36</value>
+  </data>
+  <data name="btnRemoteOK.Text" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name=">>btnRemoteOK.Name" xml:space="preserve">
+    <value>btnRemoteOK</value>
+  </data>
+  <data name=">>btnRemoteOK.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name=">>btnRemoteOK.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>btnRemoteOK.ZOrder" xml:space="preserve">
+    <value>25</value>
+  </data>
+  <data name="btnRemoteCancel.Location" type="System.Drawing.Point, System.Drawing">
+    <value>210, 350</value>
+  </data>
+  <data name="btnRemoteCancel.Size" type="System.Drawing.Size, System.Drawing">
+    <value>120, 36</value>
+  </data>
+  <data name="btnRemoteCancel.Text" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name=">>btnRemoteCancel.Name" xml:space="preserve">
+    <value>btnRemoteCancel</value>
+  </data>
+  <data name=">>btnRemoteCancel.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name=">>btnRemoteCancel.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>btnRemoteCancel.ZOrder" xml:space="preserve">
+    <value>26</value>
+  </data>
+  <data name="chkRemoteTerrainFollow.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 300</value>
+  </data>
+  <data name="chkRemoteTerrainFollow.Size" type="System.Drawing.Size, System.Drawing">
+    <value>120, 20</value>
+  </data>
+  <data name="chkRemoteTerrainFollow.Text" xml:space="preserve">
+    <value>启用仿地飞行</value>
+  </data>
+  <data name="&gt;&gt;chkRemoteTerrainFollow.Name" xml:space="preserve">
+    <value>chkRemoteTerrainFollow</value>
+  </data>
+  <data name="&gt;&gt;chkRemoteTerrainFollow.Type" xml:space="preserve">
+    <value>System.Windows.Forms.CheckBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;chkRemoteTerrainFollow.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;chkRemoteTerrainFollow.ZOrder" xml:space="preserve">
+    <value>17</value>
+  </data>
+  <data name="lblRemoteSpeedTitle.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 145</value>
+  </data>
+  <data name="lblRemoteSpeedTitle.Size" type="System.Drawing.Size, System.Drawing">
+    <value>60, 20</value>
+  </data>
+  <data name="lblRemoteSpeedTitle.Text" xml:space="preserve">
+    <value>飞行速度</value>
+  </data>
+  <data name=">>lblRemoteSpeedTitle.Name" xml:space="preserve">
+    <value>lblRemoteSpeedTitle</value>
+  </data>
+  <data name=">>lblRemoteSpeedTitle.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblRemoteSpeedTitle.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblRemoteSpeedTitle.ZOrder" xml:space="preserve">
+    <value>7</value>
+  </data>
+  <data name="pnlRemoteSpeedGroup.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 160</value>
+  </data>
+  <data name="pnlRemoteSpeedGroup.Size" type="System.Drawing.Size, System.Drawing">
+    <value>480, 28</value>
+  </data>
+  <data name=">>pnlRemoteSpeedGroup.Name" xml:space="preserve">
+    <value>pnlRemoteSpeedGroup</value>
+  </data>
+  <data name=">>pnlRemoteSpeedGroup.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Panel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>pnlRemoteSpeedGroup.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>pnlRemoteSpeedGroup.ZOrder" xml:space="preserve">
+    <value>8</value>
+  </data>
+  <data name=">>rdoRemoteSpeedSlow.Parent" xml:space="preserve">
+    <value>pnlRemoteSpeedGroup</value>
+  </data>
+  <data name=">>rdoRemoteSpeedMedium.Parent" xml:space="preserve">
+    <value>pnlRemoteSpeedGroup</value>
+  </data>
+  <data name=">>rdoRemoteSpeedFast.Parent" xml:space="preserve">
+    <value>pnlRemoteSpeedGroup</value>
+  </data>
+  <data name="pnlRemoteModeGroup.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 220</value>
+  </data>
+  <data name="pnlRemoteModeGroup.Size" type="System.Drawing.Size, System.Drawing">
+    <value>500, 120</value>
+  </data>
+  <data name=">>pnlRemoteModeGroup.Name" xml:space="preserve">
+    <value>pnlRemoteModeGroup</value>
+  </data>
+  <data name=">>pnlRemoteModeGroup.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Panel, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>pnlRemoteModeGroup.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>pnlRemoteModeGroup.ZOrder" xml:space="preserve">
+    <value>12</value>
+  </data>
+  <data name=">>rdoRemoteModePassThrough.Parent" xml:space="preserve">
+    <value>pnlRemoteModeGroup</value>
+  </data>
+  <data name=">>rdoRemoteModeLandWait.Parent" xml:space="preserve">
+    <value>pnlRemoteModeGroup</value>
+  </data>
+  <data name=">>rdoRemoteModeLandDropReturn.Parent" xml:space="preserve">
+    <value>pnlRemoteModeGroup</value>
+  </data>
+  <data name=">>rdoRemoteModeAirDrop.Parent" xml:space="preserve">
+    <value>pnlRemoteModeGroup</value>
+  </data>
+  <data name="rdoRemoteSpeedSlow.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 5</value>
+  </data>
+  <data name="rdoRemoteSpeedSlow.Size" type="System.Drawing.Size, System.Drawing">
+    <value>95, 18</value>
+  </data>
+  <data name="rdoRemoteSpeedSlow.Text" xml:space="preserve">
+    <value>慢速 5米/秒</value>
+  </data>
+  <data name=">>rdoRemoteSpeedSlow.Name" xml:space="preserve">
+    <value>rdoRemoteSpeedSlow</value>
+  </data>
+  <data name=">>rdoRemoteSpeedSlow.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteSpeedSlow.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteSpeedSlow.ZOrder" xml:space="preserve">
+    <value>8</value>
+  </data>
+  <data name="rdoRemoteSpeedMedium.Location" type="System.Drawing.Point, System.Drawing">
+    <value>120, 5</value>
+  </data>
+  <data name="rdoRemoteSpeedMedium.Size" type="System.Drawing.Size, System.Drawing">
+    <value>101, 18</value>
+  </data>
+  <data name="rdoRemoteSpeedMedium.Text" xml:space="preserve">
+    <value>中速 10米/秒</value>
+  </data>
+  <data name=">>rdoRemoteSpeedMedium.Name" xml:space="preserve">
+    <value>rdoRemoteSpeedMedium</value>
+  </data>
+  <data name=">>rdoRemoteSpeedMedium.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteSpeedMedium.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteSpeedMedium.ZOrder" xml:space="preserve">
+    <value>9</value>
+  </data>
+  <data name="rdoRemoteSpeedFast.Location" type="System.Drawing.Point, System.Drawing">
+    <value>240, 5</value>
+  </data>
+  <data name="rdoRemoteSpeedFast.Size" type="System.Drawing.Size, System.Drawing">
+    <value>200, 18</value>
+  </data>
+  <data name="rdoRemoteSpeedFast.Text" xml:space="preserve">
+    <value>快速 15米/秒[请慎重选择]</value>
+  </data>
+  <data name=">>rdoRemoteSpeedFast.Name" xml:space="preserve">
+    <value>rdoRemoteSpeedFast</value>
+  </data>
+  <data name=">>rdoRemoteSpeedFast.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteSpeedFast.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteSpeedFast.ZOrder" xml:space="preserve">
+    <value>10</value>
+  </data>
+  <data name="lblRemoteModeTitle.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 205</value>
+  </data>
+  <data name="lblRemoteModeTitle.Size" type="System.Drawing.Size, System.Drawing">
+    <value>60, 20</value>
+  </data>
+  <data name="lblRemoteModeTitle.Text" xml:space="preserve">
+    <value>飞行模式</value>
+  </data>
+  <data name=">>lblRemoteModeTitle.Name" xml:space="preserve">
+    <value>lblRemoteModeTitle</value>
+  </data>
+  <data name=">>lblRemoteModeTitle.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblRemoteModeTitle.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblRemoteModeTitle.ZOrder" xml:space="preserve">
+    <value>12</value>
+  </data>
+  <data name="rdoRemoteModePassThrough.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 5</value>
+  </data>
+  <data name="rdoRemoteModePassThrough.Size" type="System.Drawing.Size, System.Drawing">
+    <value>160, 18</value>
+  </data>
+  <data name="rdoRemoteModePassThrough.Text" xml:space="preserve">
+    <value>经过航点（不降落）</value>
+  </data>
+  <data name=">>rdoRemoteModePassThrough.Name" xml:space="preserve">
+    <value>rdoRemoteModePassThrough</value>
+  </data>
+  <data name=">>rdoRemoteModePassThrough.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteModePassThrough.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteModePassThrough.ZOrder" xml:space="preserve">
+    <value>13</value>
+  </data>
+  <data name="rdoRemoteModeLandWait.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 30</value>
+  </data>
+  <data name="rdoRemoteModeLandWait.Size" type="System.Drawing.Size, System.Drawing">
+    <value>170, 18</value>
+  </data>
+  <data name="rdoRemoteModeLandWait.Text" xml:space="preserve">
+    <value>降落地面，按键返航</value>
+  </data>
+  <data name=">>rdoRemoteModeLandWait.Name" xml:space="preserve">
+    <value>rdoRemoteModeLandWait</value>
+  </data>
+  <data name=">>rdoRemoteModeLandWait.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteModeLandWait.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteModeLandWait.ZOrder" xml:space="preserve">
+    <value>14</value>
+  </data>
+  <data name="rdoRemoteModeLandDropReturn.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 55</value>
+  </data>
+  <data name="rdoRemoteModeLandDropReturn.Size" type="System.Drawing.Size, System.Drawing">
+    <value>145, 18</value>
+  </data>
+  <data name="rdoRemoteModeLandDropReturn.Text" xml:space="preserve">
+    <value>降落地面，释放货物</value>
+  </data>
+  <data name=">>rdoRemoteModeLandDropReturn.Name" xml:space="preserve">
+    <value>rdoRemoteModeLandDropReturn</value>
+  </data>
+  <data name=">>rdoRemoteModeLandDropReturn.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteModeLandDropReturn.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteModeLandDropReturn.ZOrder" xml:space="preserve">
+    <value>15</value>
+  </data>
+  <data name="txtDropDelaySec.Location" type="System.Drawing.Point, System.Drawing">
+    <value>163, 55</value>
+  </data>
+  <data name="txtDropDelaySec.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 21</value>
+  </data>
+  <data name=">>txtDropDelaySec.Name" xml:space="preserve">
+    <value>txtDropDelaySec</value>
+  </data>
+  <data name=">>txtDropDelaySec.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>txtDropDelaySec.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>txtDropDelaySec.ZOrder" xml:space="preserve">
+    <value>16</value>
+  </data>
+  <data name="rdoRemoteModeAirDrop.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 80</value>
+  </data>
+  <data name="rdoRemoteModeAirDrop.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 18</value>
+  </data>
+  <data name="rdoRemoteModeAirDrop.Text" xml:space="preserve">
+    <value>空中</value>
+  </data>
+  <data name=">>rdoRemoteModeAirDrop.Name" xml:space="preserve">
+    <value>rdoRemoteModeAirDrop</value>
+  </data>
+  <data name=">>rdoRemoteModeAirDrop.Type" xml:space="preserve">
+    <value>System.Windows.Forms.RadioButton, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>rdoRemoteModeAirDrop.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>rdoRemoteModeAirDrop.ZOrder" xml:space="preserve">
+    <value>18</value>
+  </data>
+  <data name="lblDropAfterSec.Location" type="System.Drawing.Point, System.Drawing">
+    <value>230, 55</value>
+  </data>
+  <data name="lblDropAfterSec.Size" type="System.Drawing.Size, System.Drawing">
+    <value>100, 18</value>
+  </data>
+  <data name="lblDropAfterSec.Text" xml:space="preserve">
+    <value>秒后返航</value>
+  </data>
+  <data name=">>lblDropAfterSec.Name" xml:space="preserve">
+    <value>lblDropAfterSec</value>
+  </data>
+  <data name=">>lblDropAfterSec.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblDropAfterSec.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblDropAfterSec.ZOrder" xml:space="preserve">
+    <value>16</value>
+  </data>
+  <data name="lblAirAfterMeter.Location" type="System.Drawing.Point, System.Drawing">
+    <value>130, 80</value>
+  </data>
+  <data name="lblAirAfterMeter.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 18</value>
+  </data>
+  <data name="lblAirAfterMeter.Text" xml:space="preserve">
+    <value>米抛投</value>
+  </data>
+  <data name=">>lblAirAfterMeter.Name" xml:space="preserve">
+    <value>lblAirAfterMeter</value>
+  </data>
+  <data name=">>lblAirAfterMeter.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>lblAirAfterMeter.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>lblAirAfterMeter.ZOrder" xml:space="preserve">
+    <value>19</value>
+  </data>
+  <data name="txtAirDropHeight.Location" type="System.Drawing.Point, System.Drawing">
+    <value>68, 80</value>
+  </data>
+  <data name="txtAirDropHeight.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 21</value>
+  </data>
+  <data name=">>txtAirDropHeight.Name" xml:space="preserve">
+    <value>txtAirDropHeight</value>
+  </data>
+  <data name=">>txtAirDropHeight.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name=">>txtAirDropHeight.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>txtAirDropHeight.ZOrder" xml:space="preserve">
+    <value>19</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLat.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLat.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLng.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLng.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteAlt.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteAlt.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="lblRemoteLat.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 65</value>
+  </data>
+  <data name="lblRemoteLat.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 20</value>
+  </data>
+  <data name="lblRemoteLat.Text" xml:space="preserve">
+    <value>纬度:</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLat.Name" xml:space="preserve">
+    <value>lblRemoteLat</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLat.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLat.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLat.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="txtRemoteLat.Location" type="System.Drawing.Point, System.Drawing">
+    <value>90, 63</value>
+  </data>
+  <data name="txtRemoteLat.Size" type="System.Drawing.Size, System.Drawing">
+    <value>150, 23</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLat.Name" xml:space="preserve">
+    <value>txtRemoteLat</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLat.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLat.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLat.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="lblRemoteLng.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 30</value>
+  </data>
+  <data name="lblRemoteLng.Size" type="System.Drawing.Size, System.Drawing">
+    <value>50, 20</value>
+  </data>
+  <data name="lblRemoteLng.Text" xml:space="preserve">
+    <value>经度:</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLng.Name" xml:space="preserve">
+    <value>lblRemoteLng</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLng.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLng.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteLng.ZOrder" xml:space="preserve">
+    <value>2</value>
+  </data>
+  <data name="txtRemoteLng.Location" type="System.Drawing.Point, System.Drawing">
+    <value>90, 28</value>
+  </data>
+  <data name="txtRemoteLng.Size" type="System.Drawing.Size, System.Drawing">
+    <value>150, 23</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLng.Name" xml:space="preserve">
+    <value>txtRemoteLng</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLng.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLng.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteLng.ZOrder" xml:space="preserve">
+    <value>3</value>
+  </data>
+  <data name="lblRemoteAlt.Location" type="System.Drawing.Point, System.Drawing">
+    <value>10, 100</value>
+  </data>
+  <data name="lblRemoteAlt.Size" type="System.Drawing.Size, System.Drawing">
+    <value>60, 20</value>
+  </data>
+  <data name="lblRemoteAlt.Text" xml:space="preserve">
+    <value>高度(米):</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteAlt.Name" xml:space="preserve">
+    <value>lblRemoteAlt</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteAlt.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Label, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteAlt.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;lblRemoteAlt.ZOrder" xml:space="preserve">
+    <value>4</value>
+  </data>
+  <data name="txtRemoteAlt.Location" type="System.Drawing.Point, System.Drawing">
+    <value>90, 98</value>
+  </data>
+  <data name="txtRemoteAlt.Size" type="System.Drawing.Size, System.Drawing">
+    <value>150, 23</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteAlt.Name" xml:space="preserve">
+    <value>txtRemoteAlt</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteAlt.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TextBox, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteAlt.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name="&gt;&gt;txtRemoteAlt.ZOrder" xml:space="preserve">
+    <value>5</value>
+  </data>
   <data name="tabPagemessages.Location" type="System.Drawing.Point, System.Drawing">
     <value>4, 44</value>
   </data>

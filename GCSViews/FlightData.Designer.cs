@@ -35,6 +35,30 @@ namespace MissionPlanner.GCSViews
             this.multiLineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabControlactions = new System.Windows.Forms.TabControl();
             this.tabRemoteTakeoffLanding = new System.Windows.Forms.TabPage();
+			this.pnlRemoteDestination = new System.Windows.Forms.Panel();
+			this.lblRemoteDestTitle = new System.Windows.Forms.Label();
+			this.lblRemoteSpeedTitle = new System.Windows.Forms.Label();
+			this.rdoRemoteSpeedSlow = new System.Windows.Forms.RadioButton();
+			this.rdoRemoteSpeedMedium = new System.Windows.Forms.RadioButton();
+			this.rdoRemoteSpeedFast = new System.Windows.Forms.RadioButton();
+			this.pnlRemoteSpeedGroup = new System.Windows.Forms.Panel();
+			this.lblRemoteModeTitle = new System.Windows.Forms.Label();
+			this.rdoRemoteModePassThrough = new System.Windows.Forms.RadioButton();
+			this.rdoRemoteModeLandWait = new System.Windows.Forms.RadioButton();
+			this.rdoRemoteModeLandDropReturn = new System.Windows.Forms.RadioButton();
+			this.rdoRemoteModeAirDrop = new System.Windows.Forms.RadioButton();
+			this.pnlRemoteModeGroup = new System.Windows.Forms.Panel();
+			this.txtDropDelaySec = new System.Windows.Forms.TextBox();
+			this.txtAirDropHeight = new System.Windows.Forms.TextBox();
+			this.lblDropAfterSec = new System.Windows.Forms.Label();
+			this.lblAirAfterMeter = new System.Windows.Forms.Label();
+			this.lblRemoteLat = new System.Windows.Forms.Label();
+			this.lblRemoteLng = new System.Windows.Forms.Label();
+			this.lblRemoteAlt = new System.Windows.Forms.Label();
+			this.txtRemoteLat = new System.Windows.Forms.TextBox();
+			this.txtRemoteLng = new System.Windows.Forms.TextBox();
+			this.txtRemoteAlt = new System.Windows.Forms.TextBox();
+			this.chkRemoteTerrainFollow = new System.Windows.Forms.CheckBox();
             this.tabQuick = new System.Windows.Forms.TabPage();
             this.tableLayoutPanelQuick = new System.Windows.Forms.TableLayoutPanel();
             this.quickView6 = new MissionPlanner.Controls.QuickView();
@@ -79,6 +103,10 @@ namespace MissionPlanner.GCSViews
             this.btnRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton();
             // this.btnSetAsRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton(); // 已注释掉，不再需要此功能
             this.btnStartDelivery = new MissionPlanner.Controls.MyButton();
+            this.btnRemoteOK = new MissionPlanner.Controls.MyButton();
+            this.btnRemoteCancel = new MissionPlanner.Controls.MyButton();
+            this.chkRemoteWriteWaypoints = new System.Windows.Forms.CheckBox();
+            this.lblRemoteWaypointTip = new System.Windows.Forms.Label();
             this.tabPagemessages = new System.Windows.Forms.TabPage();
             this.txt_messagebox = new System.Windows.Forms.TextBox();
             this.tabActionsSimple = new System.Windows.Forms.TabPage();
@@ -624,9 +652,201 @@ namespace MissionPlanner.GCSViews
             // tabRemoteTakeoffLanding
             // 
             resources.ApplyResources(this.tabRemoteTakeoffLanding, "tabRemoteTakeoffLanding");
+			this.tabRemoteTakeoffLanding.Controls.Add(this.pnlRemoteDestination);
             this.tabRemoteTakeoffLanding.Name = "tabRemoteTakeoffLanding";
             this.tabRemoteTakeoffLanding.UseVisualStyleBackColor = true;
             this.tabRemoteTakeoffLanding.Text = "异地起降";
+			// 
+			// pnlRemoteDestination
+			// 
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteDestTitle);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteSpeedTitle);
+			this.pnlRemoteDestination.Controls.Add(this.pnlRemoteSpeedGroup);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteModeTitle);
+			this.pnlRemoteDestination.Controls.Add(this.pnlRemoteModeGroup);
+			this.pnlRemoteDestination.Controls.Add(this.chkRemoteTerrainFollow);
+			this.pnlRemoteDestination.Controls.Add(this.chkRemoteWriteWaypoints);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteWaypointTip);
+			this.pnlRemoteDestination.Controls.Add(this.btnRemoteOK);
+			this.pnlRemoteDestination.Controls.Add(this.btnRemoteCancel);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteLat);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteLng);
+			this.pnlRemoteDestination.Controls.Add(this.lblRemoteAlt);
+			this.pnlRemoteDestination.Controls.Add(this.txtRemoteLat);
+			this.pnlRemoteDestination.Controls.Add(this.txtRemoteLng);
+			this.pnlRemoteDestination.Controls.Add(this.txtRemoteAlt);
+			resources.ApplyResources(this.pnlRemoteDestination, "pnlRemoteDestination");
+			this.pnlRemoteDestination.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+			            | System.Windows.Forms.AnchorStyles.Right)));
+			this.pnlRemoteDestination.AutoScroll = true;
+			this.pnlRemoteDestination.Name = "pnlRemoteDestination";
+			this.pnlRemoteDestination.Resize += new System.EventHandler(this.pnlRemoteDestination_Resize);
+			// 
+			// lblRemoteLat
+			// 
+			resources.ApplyResources(this.lblRemoteLat, "lblRemoteLat");
+			this.lblRemoteLat.Name = "lblRemoteLat";
+			// 
+			// lblRemoteLng
+			// 
+			resources.ApplyResources(this.lblRemoteLng, "lblRemoteLng");
+			this.lblRemoteLng.Name = "lblRemoteLng";
+			// 
+			// lblRemoteAlt
+			// 
+			resources.ApplyResources(this.lblRemoteAlt, "lblRemoteAlt");
+			this.lblRemoteAlt.Name = "lblRemoteAlt";
+			// 
+			// txtRemoteLat
+			// 
+			resources.ApplyResources(this.txtRemoteLat, "txtRemoteLat");
+			this.txtRemoteLat.Name = "txtRemoteLat";
+			// 
+			// txtRemoteLng
+			// 
+			resources.ApplyResources(this.txtRemoteLng, "txtRemoteLng");
+			this.txtRemoteLng.Name = "txtRemoteLng";
+			// 
+			// txtRemoteAlt
+			// 
+			resources.ApplyResources(this.txtRemoteAlt, "txtRemoteAlt");
+			this.txtRemoteAlt.Name = "txtRemoteAlt";
+			// 
+			// chkRemoteTerrainFollow
+			// 
+			resources.ApplyResources(this.chkRemoteTerrainFollow, "chkRemoteTerrainFollow");
+			this.chkRemoteTerrainFollow.Name = "chkRemoteTerrainFollow";
+            //默认勾选
+			this.chkRemoteTerrainFollow.Checked = true;
+			// 
+			// rdoRemoteSpeedSlow
+			// 
+			resources.ApplyResources(this.rdoRemoteSpeedSlow, "rdoRemoteSpeedSlow");
+			this.rdoRemoteSpeedSlow.Name = "rdoRemoteSpeedSlow";
+			this.rdoRemoteSpeedSlow.TabStop = true;
+			this.rdoRemoteSpeedSlow.Checked = true;
+			this.rdoRemoteSpeedSlow.UseVisualStyleBackColor = true;
+			// 
+			// rdoRemoteSpeedMedium
+			// 
+			resources.ApplyResources(this.rdoRemoteSpeedMedium, "rdoRemoteSpeedMedium");
+			this.rdoRemoteSpeedMedium.Name = "rdoRemoteSpeedMedium";
+			this.rdoRemoteSpeedMedium.UseVisualStyleBackColor = true;
+			// 
+			// rdoRemoteSpeedFast
+			// 
+			resources.ApplyResources(this.rdoRemoteSpeedFast, "rdoRemoteSpeedFast");
+			this.rdoRemoteSpeedFast.Name = "rdoRemoteSpeedFast";
+			this.rdoRemoteSpeedFast.UseVisualStyleBackColor = true;
+			// 
+			// pnlRemoteSpeedGroup
+			// 
+			resources.ApplyResources(this.pnlRemoteSpeedGroup, "pnlRemoteSpeedGroup");
+			this.pnlRemoteSpeedGroup.Name = "pnlRemoteSpeedGroup";
+			this.pnlRemoteSpeedGroup.Controls.Add(this.rdoRemoteSpeedSlow);
+			this.pnlRemoteSpeedGroup.Controls.Add(this.rdoRemoteSpeedMedium);
+			this.pnlRemoteSpeedGroup.Controls.Add(this.rdoRemoteSpeedFast);
+			// 
+			// lblRemoteSpeedTitle
+			// 
+			resources.ApplyResources(this.lblRemoteSpeedTitle, "lblRemoteSpeedTitle");
+			this.lblRemoteSpeedTitle.Name = "lblRemoteSpeedTitle";
+			// 
+			// lblRemoteModeTitle
+			// 
+			resources.ApplyResources(this.lblRemoteModeTitle, "lblRemoteModeTitle");
+			this.lblRemoteModeTitle.Name = "lblRemoteModeTitle";
+			// 
+			// rdoRemoteModePassThrough
+			// 
+			resources.ApplyResources(this.rdoRemoteModePassThrough, "rdoRemoteModePassThrough");
+			this.rdoRemoteModePassThrough.Name = "rdoRemoteModePassThrough";
+			this.rdoRemoteModePassThrough.TabStop = true;
+			this.rdoRemoteModePassThrough.Checked = true;
+			this.rdoRemoteModePassThrough.UseVisualStyleBackColor = true;
+			// 
+			// rdoRemoteModeLandWait
+			// 
+			resources.ApplyResources(this.rdoRemoteModeLandWait, "rdoRemoteModeLandWait");
+			this.rdoRemoteModeLandWait.Name = "rdoRemoteModeLandWait";
+			this.rdoRemoteModeLandWait.UseVisualStyleBackColor = true;
+			// 
+			// rdoRemoteModeLandDropReturn
+			// 
+			resources.ApplyResources(this.rdoRemoteModeLandDropReturn, "rdoRemoteModeLandDropReturn");
+			this.rdoRemoteModeLandDropReturn.Name = "rdoRemoteModeLandDropReturn";
+			this.rdoRemoteModeLandDropReturn.UseVisualStyleBackColor = true;
+			// 
+			// rdoRemoteModeAirDrop
+			// 
+			resources.ApplyResources(this.rdoRemoteModeAirDrop, "rdoRemoteModeAirDrop");
+			this.rdoRemoteModeAirDrop.Name = "rdoRemoteModeAirDrop";
+			this.rdoRemoteModeAirDrop.UseVisualStyleBackColor = true;
+			// 
+			// pnlRemoteModeGroup
+			// 
+			resources.ApplyResources(this.pnlRemoteModeGroup, "pnlRemoteModeGroup");
+			this.pnlRemoteModeGroup.Name = "pnlRemoteModeGroup";
+			this.pnlRemoteModeGroup.Controls.Add(this.rdoRemoteModePassThrough);
+			this.pnlRemoteModeGroup.Controls.Add(this.rdoRemoteModeLandWait);
+			this.pnlRemoteModeGroup.Controls.Add(this.rdoRemoteModeLandDropReturn);
+			this.pnlRemoteModeGroup.Controls.Add(this.rdoRemoteModeAirDrop);
+			this.pnlRemoteModeGroup.Controls.Add(this.txtDropDelaySec);
+			this.pnlRemoteModeGroup.Controls.Add(this.lblDropAfterSec);
+			this.pnlRemoteModeGroup.Controls.Add(this.txtAirDropHeight);
+			this.pnlRemoteModeGroup.Controls.Add(this.lblAirAfterMeter);
+			// 
+			// txtDropDelaySec
+			// 
+			resources.ApplyResources(this.txtDropDelaySec, "txtDropDelaySec");
+			this.txtDropDelaySec.Name = "txtDropDelaySec";
+			this.txtDropDelaySec.Text = "5";
+			// 
+			// lblDropAfterSec
+			// 
+			resources.ApplyResources(this.lblDropAfterSec, "lblDropAfterSec");
+			this.lblDropAfterSec.Name = "lblDropAfterSec";
+			// 
+			// txtAirDropHeight
+			// 
+			resources.ApplyResources(this.txtAirDropHeight, "txtAirDropHeight");
+			this.txtAirDropHeight.Name = "txtAirDropHeight";
+			this.txtAirDropHeight.Text = "10";
+			// 
+			// lblAirAfterMeter
+			// 
+			resources.ApplyResources(this.lblAirAfterMeter, "lblAirAfterMeter");
+			this.lblAirAfterMeter.Name = "lblAirAfterMeter";
+			// 
+			// chkRemoteWriteWaypoints
+			// 
+			resources.ApplyResources(this.chkRemoteWriteWaypoints, "chkRemoteWriteWaypoints");
+			this.chkRemoteWriteWaypoints.Name = "chkRemoteWriteWaypoints";
+			this.chkRemoteWriteWaypoints.UseVisualStyleBackColor = true;
+			// 
+			// lblRemoteWaypointTip
+			// 
+			resources.ApplyResources(this.lblRemoteWaypointTip, "lblRemoteWaypointTip");
+			this.lblRemoteWaypointTip.Name = "lblRemoteWaypointTip";
+			// 
+			// btnRemoteOK
+			// 
+			resources.ApplyResources(this.btnRemoteOK, "btnRemoteOK");
+			this.btnRemoteOK.Name = "btnRemoteOK";
+			this.btnRemoteOK.UseVisualStyleBackColor = true;
+			this.btnRemoteOK.Click += new System.EventHandler(this.btnRemoteOK_Click);
+			// 
+			// btnRemoteCancel
+			// 
+			resources.ApplyResources(this.btnRemoteCancel, "btnRemoteCancel");
+			this.btnRemoteCancel.Name = "btnRemoteCancel";
+			this.btnRemoteCancel.UseVisualStyleBackColor = true;
+			this.btnRemoteCancel.Click += new System.EventHandler(this.btnRemoteCancel_Click);
+			// 
+			// lblRemoteDestTitle
+			// 
+			resources.ApplyResources(this.lblRemoteDestTitle, "lblRemoteDestTitle");
+			this.lblRemoteDestTitle.Name = "lblRemoteDestTitle";
             // 
             // tabQuick
             // 
@@ -3237,6 +3457,34 @@ namespace MissionPlanner.GCSViews
         private System.Windows.Forms.ToolStripMenuItem gStreamerStopToolStripMenuItem;
         private Controls.MyButton BUT_georefimage;
         private Controls.QuickView quickView6;
+		private System.Windows.Forms.Label lblRemoteLat;
+		private System.Windows.Forms.Label lblRemoteLng;
+		private System.Windows.Forms.Label lblRemoteAlt;
+		private System.Windows.Forms.TextBox txtRemoteLat;
+		private System.Windows.Forms.TextBox txtRemoteLng;
+		private System.Windows.Forms.TextBox txtRemoteAlt;
+		private System.Windows.Forms.Panel pnlRemoteDestination;
+		private System.Windows.Forms.CheckBox chkRemoteTerrainFollow;
+		private System.Windows.Forms.Label lblRemoteDestTitle;
+		private System.Windows.Forms.Label lblRemoteSpeedTitle;
+		private System.Windows.Forms.RadioButton rdoRemoteSpeedSlow;
+		private System.Windows.Forms.RadioButton rdoRemoteSpeedMedium;
+		private System.Windows.Forms.RadioButton rdoRemoteSpeedFast;
+		private System.Windows.Forms.Panel pnlRemoteSpeedGroup;
+		private System.Windows.Forms.Label lblRemoteModeTitle;
+		private System.Windows.Forms.RadioButton rdoRemoteModePassThrough;
+		private System.Windows.Forms.RadioButton rdoRemoteModeLandWait;
+		private System.Windows.Forms.RadioButton rdoRemoteModeLandDropReturn;
+		private System.Windows.Forms.RadioButton rdoRemoteModeAirDrop;
+		private System.Windows.Forms.Panel pnlRemoteModeGroup;
+		private System.Windows.Forms.TextBox txtDropDelaySec;
+		private System.Windows.Forms.TextBox txtAirDropHeight;
+		private System.Windows.Forms.Label lblDropAfterSec;
+		private System.Windows.Forms.Label lblAirAfterMeter;
+		private System.Windows.Forms.CheckBox chkRemoteWriteWaypoints;
+		private System.Windows.Forms.Label lblRemoteWaypointTip;
+		private MissionPlanner.Controls.MyButton btnRemoteOK;
+		private MissionPlanner.Controls.MyButton btnRemoteCancel;
         private Controls.QuickView quickView5;
         private System.Windows.Forms.ToolStripMenuItem poiatcoordsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem flyToCoordsToolStripMenuItem;
