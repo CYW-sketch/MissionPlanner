@@ -633,7 +633,7 @@ namespace MissionPlanner.GCSViews
             //如果需要隐藏其他标签页，注释以下代码即可
 			this.tabControlactions.Controls.Add(this.tabQuick);
 			this.tabControlactions.Controls.Add(this.tabActions);
-			this.tabControlactions.Controls.Add(this.tabPageWaypoints);
+			// this.tabControlactions.Controls.Add(this.tabPageWaypoints);
 			this.tabControlactions.Controls.Add(this.tabPagemessages);
 			this.tabControlactions.Controls.Add(this.tabActionsSimple);
 			this.tabControlactions.Controls.Add(this.tabPagePreFlight);
