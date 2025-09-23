@@ -104,6 +104,7 @@ namespace MissionPlanner.GCSViews
             // this.btnSetAsRemoteTakeoffLanding = new MissionPlanner.Controls.MyButton(); // 已注释掉，不再需要此功能
             this.btnStartDelivery = new MissionPlanner.Controls.MyButton();
             this.btnRemoteOK = new MissionPlanner.Controls.MyButton();
+            this.btnRemoteStart = new MissionPlanner.Controls.MyButton();
             this.btnRemoteCancel = new MissionPlanner.Controls.MyButton();
             this.chkRemoteWriteWaypoints = new System.Windows.Forms.CheckBox();
             this.lblRemoteWaypointTip = new System.Windows.Forms.Label();
@@ -667,6 +668,7 @@ namespace MissionPlanner.GCSViews
 			this.pnlRemoteDestination.Controls.Add(this.chkRemoteTerrainFollow);
 			this.pnlRemoteDestination.Controls.Add(this.chkRemoteWriteWaypoints);
 			this.pnlRemoteDestination.Controls.Add(this.lblRemoteWaypointTip);
+			this.pnlRemoteDestination.Controls.Add(this.btnRemoteStart);
 			this.pnlRemoteDestination.Controls.Add(this.btnRemoteOK);
 			this.pnlRemoteDestination.Controls.Add(this.btnRemoteCancel);
 			this.pnlRemoteDestination.Controls.Add(this.lblRemoteLat);
@@ -847,6 +849,11 @@ namespace MissionPlanner.GCSViews
 			// 
 			resources.ApplyResources(this.lblRemoteDestTitle, "lblRemoteDestTitle");
 			this.lblRemoteDestTitle.Name = "lblRemoteDestTitle";
+            //开始送货按键
+            resources.ApplyResources(this.btnRemoteStart, "btnRemoteStart");
+            this.btnRemoteStart.Name = "btnRemoteStart";
+            this.btnRemoteStart.UseVisualStyleBackColor = true;
+            this.btnRemoteStart.Click += new System.EventHandler(this.btnRemoteStart_Click);
             // 
             // tabQuick
             // 
@@ -3392,6 +3399,7 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton BUT_DFMavlink;
         public System.Windows.Forms.TabPage tabPageWaypoints;
         public System.Windows.Forms.TabPage tabRemoteTakeoffLanding;
+        private MissionPlanner.Controls.MyButton btnRemoteStart;
         private System.Windows.Forms.Panel panelWaypointControls;
         private Controls.MyButton btnAddWaypoint;
         private Controls.MyButton btnDeleteWaypoint;

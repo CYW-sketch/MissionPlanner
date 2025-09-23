@@ -7560,6 +7560,19 @@ namespace MissionPlanner.GCSViews
             }
         }
 
+		private void btnRemoteStart_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				btnStartDelivery_Click(sender, e);
+			}
+			catch (Exception ex)
+			{
+				CustomMessageBox.Show("启动送货任务时发生错误: " + ex.Message, "错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+			}
+		}
+
         private void OnlyAllowDigits_KeyPress(object sender, KeyPressEventArgs e)
         {
             // allow control keys and digits only

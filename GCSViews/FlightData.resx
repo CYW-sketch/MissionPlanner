@@ -1635,7 +1635,7 @@
     <value>0</value>
   </data>
   <data name="chkRemoteWriteWaypoints.Location" type="System.Drawing.Point, System.Drawing">
-    <value>70, 400</value>
+    <value>50, 400</value>
   </data>
   <data name="chkRemoteWriteWaypoints.Size" type="System.Drawing.Size, System.Drawing">
     <value>160, 20</value>
@@ -1656,7 +1656,7 @@
     <value>23</value>
   </data>
   <data name="lblRemoteWaypointTip.Location" type="System.Drawing.Point, System.Drawing">
-    <value>70, 430</value>
+    <value>50, 430</value>
   </data>
   <data name="lblRemoteWaypointTip.Size" type="System.Drawing.Size, System.Drawing">
     <value>460, 40</value>
@@ -1677,7 +1677,7 @@
     <value>24</value>
   </data>
   <data name="btnRemoteOK.Location" type="System.Drawing.Point, System.Drawing">
-    <value>70, 350</value>
+    <value>50, 350</value>
   </data>
   <data name="btnRemoteOK.Size" type="System.Drawing.Size, System.Drawing">
     <value>120, 36</value>
@@ -1698,7 +1698,7 @@
     <value>25</value>
   </data>
   <data name="btnRemoteCancel.Location" type="System.Drawing.Point, System.Drawing">
-    <value>210, 350</value>
+    <value>190, 350</value>
   </data>
   <data name="btnRemoteCancel.Size" type="System.Drawing.Size, System.Drawing">
     <value>120, 36</value>
@@ -1717,6 +1717,27 @@
   </data>
   <data name=">>btnRemoteCancel.ZOrder" xml:space="preserve">
     <value>26</value>
+  </data>
+  <data name="btnRemoteStart.Location" type="System.Drawing.Point, System.Drawing">
+    <value>330, 350</value>
+  </data>
+  <data name="btnRemoteStart.Size" type="System.Drawing.Size, System.Drawing">
+    <value>120, 36</value>
+  </data>
+  <data name="btnRemoteStart.Text" xml:space="preserve">
+    <value>开始送货</value>
+  </data>
+  <data name=">>btnRemoteStart.Name" xml:space="preserve">
+    <value>btnRemoteStart</value>
+  </data>
+  <data name=">>btnRemoteStart.Type" xml:space="preserve">
+    <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name=">>btnRemoteStart.Parent" xml:space="preserve">
+    <value>pnlRemoteDestination</value>
+  </data>
+  <data name=">>btnRemoteStart.ZOrder" xml:space="preserve">
+    <value>27</value>
   </data>
   <data name="chkRemoteTerrainFollow.Location" type="System.Drawing.Point, System.Drawing">
     <value>10, 300</value>
