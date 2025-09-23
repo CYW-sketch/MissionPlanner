@@ -628,6 +628,8 @@ namespace MissionPlanner.GCSViews
             // tabControlactions
             // 
             this.tabControlactions.ContextMenuStrip = this.contextMenuStripactionstab;
+            //添加广东梵亚无人机异地起降标签页
+            this.tabControlactions.Controls.Add(this.tabRemoteTakeoffLanding);
             //如果需要隐藏其他标签页，注释以下代码即可
 			this.tabControlactions.Controls.Add(this.tabQuick);
 			this.tabControlactions.Controls.Add(this.tabActions);
@@ -644,8 +646,6 @@ namespace MissionPlanner.GCSViews
 			this.tabControlactions.Controls.Add(this.tabPayload);
 			this.tabControlactions.Controls.Add(this.tabTLogs);
 			this.tabControlactions.Controls.Add(this.tablogbrowse);
-            //添加广东梵亚无人机异地起降标签页
-            this.tabControlactions.Controls.Add(this.tabRemoteTakeoffLanding);
             resources.ApplyResources(this.tabControlactions, "tabControlactions");
             this.tabControlactions.Name = "tabControlactions";
             this.tabControlactions.SelectedIndex = 0;
