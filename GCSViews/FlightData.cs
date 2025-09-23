@@ -2880,6 +2880,9 @@ namespace MissionPlanner.GCSViews
             {
                 mainloop();
             }
+
+            // 初始化异地起降标签页
+            InitializeRemoteTakeoffLandingTab();
         }
 
         private void FlightData_ParentChanged(object sender, EventArgs e)
@@ -3500,6 +3503,10 @@ namespace MissionPlanner.GCSViews
                     //await Task.Delay(50);
                     Thread.Sleep(50);
                     updateBindingSource();
+                    
+                    // 检测连接状态变化并自动设置相关选项
+                    CheckConnectionStatusAndAutoSet();
+                    
                     continue;
                 }
 
@@ -7081,12 +7088,409 @@ namespace MissionPlanner.GCSViews
 
 		private void btnRemoteOK_Click(object sender, EventArgs e)
 		{
-			// 逻辑后续追加
+			try
+			{
+				// 检查是否有飞行计划器实例
+				if (MainV2.instance?.FlightPlanner == null)
+				{
+					CustomMessageBox.Show("飞行计划器未初始化，无法使用异地起降功能。", "错误", 
+						CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+					return;
+				}
+
+				// 验证输入数据
+				if (!ValidateRemoteTakeoffLandingInput())
+				{
+					return;
+				}
+
+				// 直接调用ProcessRemoteTakeoffLandingFromUI方法
+				ProcessRemoteTakeoffLandingFromUI();
+				
+				// 显示成功消息
+				CustomMessageBox.Show("异地起降任务已成功添加！", "成功", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				CustomMessageBox.Show("处理异地起降设置时发生错误: " + ex.Message, "错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+			}
 		}
 
 		private void btnRemoteCancel_Click(object sender, EventArgs e)
 		{
-			// 逻辑后续追加
+			try
+			{
+				// 确认是否要清除所有指令和航点
+				var result = CustomMessageBox.Show(
+					"确定要清除所有指令和航点吗？\n\n这将删除飞行计划器中的所有航点数据，此操作不可撤销！", 
+					"确认清除", 
+					CustomMessageBox.MessageBoxButtons.YesNo, 
+					CustomMessageBox.MessageBoxIcon.Question);
+				
+				if (result == CustomMessageBox.DialogResult.Yes)
+				{
+					// 记录清除前的航点数量
+					int waypointCount = 0;
+					if (MainV2.instance?.FlightPlanner != null)
+					{
+						waypointCount = MainV2.instance.FlightPlanner.Commands.Rows.Count;
+					}
+					
+					// 清除所有指令和航点
+					ClearAllCommandsAndWaypoints();
+					
+					// 清空所有输入框
+					ClearRemoteTakeoffLandingInputs();
+					
+					// 重置为默认值
+					ResetRemoteTakeoffLandingToDefaults();
+					
+					// 显示成功消息
+					CustomMessageBox.Show($"已成功清除所有指令和航点！\n\n共清除了 {waypointCount} 个航点。", "清除完成", 
+						CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+				}
+			}
+			catch (Exception ex)
+			{
+				CustomMessageBox.Show("清除指令和航点时发生错误: " + ex.Message, "错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Error);
+			}
+		}
+
+		/// <summary>
+		/// 验证异地起降输入数据
+		/// </summary>
+		/// <returns>验证是否通过</returns>
+		private bool ValidateRemoteTakeoffLandingInput()
+		{
+			// 验证目的地坐标
+			if (!ValidateNumber(txtRemoteLat, -90, 90, "目的地纬度"))
+			{
+				return false;
+			}
+			if (!ValidateNumber(txtRemoteLng, -180, 180, "目的地经度"))
+			{
+				return false;
+			}
+			if (!ValidateNumber(txtRemoteAlt, 0, 1000, "目的地高度"))
+			{
+				return false;
+			}
+
+			// 验证降落参数（只有在相应选项被选中时才验证）
+			if (rdoRemoteModeLandDropReturn.Checked)
+			{
+				if (!ValidateNumber(txtDropDelaySec, 1, 300, "货物释放时间"))
+				{
+					return false;
+				}
+			}
+			if (rdoRemoteModeAirDrop.Checked)
+			{
+				if (!ValidateNumber(txtAirDropHeight, 3, 200, "抛投高度"))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// 验证数字输入
+		/// </summary>
+		/// <param name="textBox">输入框</param>
+		/// <param name="min">最小值</param>
+		/// <param name="max">最大值</param>
+		/// <param name="fieldName">字段名称</param>
+		/// <returns>验证是否通过</returns>
+		private bool ValidateNumber(TextBox textBox, double min, double max, string fieldName)
+		{
+			double value;
+			if (!double.TryParse(textBox.Text, out value))
+			{
+				CustomMessageBox.Show($"{fieldName}必须是数字", "输入错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+				textBox.Focus();
+				return false;
+			}
+			if (value < min || value > max)
+			{
+				CustomMessageBox.Show($"{fieldName}必须在{min}到{max}之间", "输入错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+				textBox.Focus();
+				return false;
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// 直接从UI控件处理异地起降逻辑
+		/// </summary>
+		private void ProcessRemoteTakeoffLandingFromUI()
+		{
+			// 获取起飞点坐标（自动获取）
+			double takeoffLat = 0, takeoffLng = 0, takeoffAlt = 30;
+			bool hasValidTakeoff = false;
+
+			// 优先使用FlightPlanner的地图位置
+			if (MainV2.instance?.FlightPlanner?.MainMap != null)
+			{
+				var map = MainV2.instance.FlightPlanner.MainMap;
+				if (!map.Position.IsEmpty && Math.Abs(map.Position.Lat) > 0.001 && Math.Abs(map.Position.Lng) > 0.001)
+				{
+					takeoffLat = map.Position.Lat;
+					takeoffLng = map.Position.Lng;
+					hasValidTakeoff = true;
+				}
+			}
+
+			// 如果没有有效位置，使用FlightData地图位置
+			if (!hasValidTakeoff && gMapControl1 != null)
+			{
+				if (!gMapControl1.Position.IsEmpty && Math.Abs(gMapControl1.Position.Lat) > 0.001 && Math.Abs(gMapControl1.Position.Lng) > 0.001)
+				{
+					takeoffLat = gMapControl1.Position.Lat;
+					takeoffLng = gMapControl1.Position.Lng;
+					hasValidTakeoff = true;
+				}
+			}
+
+			// 如果还是没有有效位置，使用默认位置
+			if (!hasValidTakeoff)
+			{
+				takeoffLat = 39.9042;
+				takeoffLng = 116.4074;
+				takeoffAlt = 30;
+			}
+
+			// 获取目的地坐标
+			double landLat = double.Parse(txtRemoteLat.Text);
+			double landLng = double.Parse(txtRemoteLng.Text);
+			double landAlt = double.Parse(txtRemoteAlt.Text);
+
+			// 获取飞行速度
+			double flightSpeed = 5.0; // 默认慢速
+			if (rdoRemoteSpeedMedium.Checked)
+				flightSpeed = 10.0; // 中速
+			else if (rdoRemoteSpeedFast.Checked)
+				flightSpeed = 15.0; // 高速
+
+			// 获取降落模式
+			RemoteTakeoffLandingForm.LandingMode landingMode = RemoteTakeoffLandingForm.LandingMode.PassThrough;
+			if (rdoRemoteModeLandWait.Checked)
+				landingMode = RemoteTakeoffLandingForm.LandingMode.LandGround;
+			else if (rdoRemoteModeLandDropReturn.Checked)
+				landingMode = RemoteTakeoffLandingForm.LandingMode.LandCargo;
+			else if (rdoRemoteModeAirDrop.Checked)
+				landingMode = RemoteTakeoffLandingForm.LandingMode.LandDrop;
+
+			// 获取其他参数
+			bool shouldLand = landingMode != RemoteTakeoffLandingForm.LandingMode.PassThrough;
+			double cargoTime = rdoRemoteModeLandDropReturn.Checked ? double.Parse(txtDropDelaySec.Text) : 0;
+			double dropHeight = rdoRemoteModeAirDrop.Checked ? double.Parse(txtAirDropHeight.Text) : 0;
+			bool terrainFollowing = chkRemoteTerrainFollow.Checked;
+			bool writeWaypoints = chkRemoteWriteWaypoints.Checked;
+
+			// 直接调用FlightPlanner的异地起降逻辑
+			MainV2.instance.FlightPlanner.ProcessRemoteTakeoffLandingFromData(
+				takeoffLat, takeoffLng, takeoffAlt,
+				landLat, landLng, landAlt,
+				flightSpeed, landingMode, shouldLand,
+				cargoTime, dropHeight, terrainFollowing, writeWaypoints);
+		}
+
+		/// <summary>
+		/// 清除所有指令和航点
+		/// </summary>
+		private void ClearAllCommandsAndWaypoints()
+		{
+			try
+			{
+				// 检查是否有飞行计划器实例
+				if (MainV2.instance?.FlightPlanner == null)
+				{
+					CustomMessageBox.Show("飞行计划器未初始化，无法清除航点。", "错误", 
+						CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+					return;
+				}
+
+				// 清除FlightPlanner中的所有指令和航点
+				MainV2.instance.FlightPlanner.Commands.Rows.Clear();
+				
+				// 清除Home位置设置，设置为默认值而不是空值
+				MainV2.instance.FlightPlanner.TXT_homelat.Text = "0";
+				MainV2.instance.FlightPlanner.TXT_homelng.Text = "0";
+				MainV2.instance.FlightPlanner.TXT_homealt.Text = "0";
+				
+				// 更新地图显示
+				MainV2.instance.FlightPlanner.writeKML();
+				
+				// 更新坐标按钮文本
+				MainV2.instance.FlightPlanner.UpdateCoordinateButtonText();
+				
+				// 如果连接到飞行器，也清除飞行器中的航点
+				if (IsConnected())
+				{
+					try
+					{
+						// 清除飞行器中的航点
+						MainV2.comPort.setWPTotal(0);
+						
+						// 等待清除完成
+						System.Threading.Thread.Sleep(500);
+						
+						// 写入空航点列表到飞行器
+						MainV2.instance.FlightPlanner.BUT_write_Click(null, null);
+						
+						// 等待写入完成
+						System.Threading.Thread.Sleep(1000);
+						
+						// 重新读取航点列表以确认清除
+						MainV2.instance.FlightPlanner.BUT_read_Click(null, null);
+						
+						// 自动勾选"自动写入航点"选项，避免每次手动勾选
+						SetAutoWriteWaypoints(true);
+					}
+					catch (Exception ex)
+					{
+						log.Warn($"清除飞行器航点时发生错误: {ex.Message}");
+						// 不抛出异常，继续执行
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				log.Error($"清除指令和航点时发生错误: {ex.Message}");
+				throw;
+			}
+		}
+
+		/// <summary>
+		/// 清空异地起降输入框
+		/// </summary>
+		private void ClearRemoteTakeoffLandingInputs()
+		{
+			txtRemoteLat.Text = "";
+			txtRemoteLng.Text = "";
+			txtRemoteAlt.Text = "";
+			txtDropDelaySec.Text = "";
+			txtAirDropHeight.Text = "";
+		}
+
+		/// <summary>
+		/// 重置异地起降设置为默认值
+		/// </summary>
+		private void ResetRemoteTakeoffLandingToDefaults()
+		{
+			// 重置目的地坐标为默认值
+			txtRemoteLat.Text = "39.904200";
+			txtRemoteLng.Text = "116.407400";
+			txtRemoteAlt.Text = "30";
+
+			// 重置飞行速度为慢速
+			rdoRemoteSpeedSlow.Checked = true;
+			rdoRemoteSpeedMedium.Checked = false;
+			rdoRemoteSpeedFast.Checked = false;
+
+			// 重置飞行模式为经过模式
+			rdoRemoteModePassThrough.Checked = true;
+			rdoRemoteModeLandWait.Checked = false;
+			rdoRemoteModeLandDropReturn.Checked = false;
+			rdoRemoteModeAirDrop.Checked = false;
+
+			// 重置降落参数
+			txtDropDelaySec.Text = "5";
+			txtAirDropHeight.Text = "10";
+
+			// 重置复选框
+			chkRemoteTerrainFollow.Checked = true;
+			chkRemoteWriteWaypoints.Checked = IsConnected();
+			
+			// 检测连接状态变化并自动设置相关选项
+			CheckConnectionStatusAndAutoSet();
+			
+			// 更新按钮文本以反映新功能
+			btnRemoteCancel.Text = "重置所有";
+		}
+
+		/// <summary>
+		/// 检查是否连接到飞行器
+		/// </summary>
+		/// <returns>是否已连接</returns>
+		private bool IsConnected()
+		{
+			return MainV2.comPort?.BaseStream?.IsOpen == true;
+		}
+
+		/// <summary>
+		/// 检测连接状态变化并自动设置相关选项
+		/// </summary>
+		private void CheckConnectionStatusAndAutoSet()
+		{
+			try
+			{
+				bool currentlyConnected = IsConnected();
+				
+				// 只在连接状态改变时执行操作
+				if (currentlyConnected && !lastConnectionState)
+				{
+					log.Info("检测到飞机连接成功，自动设置相关选项");
+					
+					// 自动勾选异地起降的写入航点选项
+					if (chkRemoteWriteWaypoints != null && !chkRemoteWriteWaypoints.Checked)
+					{
+						chkRemoteWriteWaypoints.Checked = true;
+						log.Info("自动勾选异地起降写入航点选项");
+					}
+					
+					// 自动勾选FlightPlanner中的自动写入航点选项
+					SetAutoWriteWaypoints(true);
+				}
+				
+				// 更新连接状态
+				lastConnectionState = currentlyConnected;
+			}
+			catch (Exception ex)
+			{
+				log.Warn($"检测连接状态时发生错误: {ex.Message}");
+			}
+		}
+
+		// 用于跟踪连接状态的静态变量
+		private static bool lastConnectionState = false;
+
+		/// <summary>
+		/// 初始化异地起降标签页
+		/// </summary>
+		private void InitializeRemoteTakeoffLandingTab()
+		{
+			try
+			{
+				// 设置默认值
+				ResetRemoteTakeoffLandingToDefaults();
+				
+				// 根据连接状态更新写入航点复选框
+				chkRemoteWriteWaypoints.Checked = IsConnected();
+				
+				// 如果已连接，自动勾选FlightPlanner中的自动写入航点选项
+				if (IsConnected())
+				{
+					SetAutoWriteWaypoints(true);
+				}
+				
+				// 检测连接状态变化并自动设置相关选项
+				CheckConnectionStatusAndAutoSet();
+				
+				// 设置按钮文本
+				btnRemoteCancel.Text = "一键重置";
+			}
+			catch (Exception ex)
+			{
+				log.Error("初始化异地起降标签页时发生错误: " + ex.Message);
+			}
 		}
 
         private void btnStartDelivery_Click(object sender, EventArgs e)
@@ -7187,6 +7591,84 @@ namespace MissionPlanner.GCSViews
             }
 
             textBox.Text = value.ToString();
+        }
+
+        /// <summary>
+        /// 设置自动写入航点选项
+        /// </summary>
+        /// <param name="enabled">是否启用自动写入</param>
+        private void SetAutoWriteWaypoints(bool enabled)
+        {
+            try
+            {
+                // 检查FlightPlanner是否可用
+                if (MainV2.instance?.FlightPlanner == null)
+                {
+                    log.Warn("FlightPlanner未初始化，无法设置自动写入航点选项");
+                    return;
+                }
+
+                var flightPlanner = MainV2.instance.FlightPlanner;
+                bool found = false;
+                
+                // 方法1: 查找所有CheckBox控件，寻找可能的自动写入相关控件
+                var allCheckBoxes = flightPlanner.Controls.Find("", true).OfType<CheckBox>().ToList();
+                log.Info($"找到 {allCheckBoxes.Count} 个CheckBox控件");
+                
+                foreach (var checkBox in allCheckBoxes)
+                {
+                    var name = checkBox.Name.ToLower();
+                    var text = checkBox.Text.ToLower();
+                    
+                    // 检查控件名称和文本是否包含自动写入相关的关键词
+                    if (name.Contains("auto") && (name.Contains("write") || name.Contains("mission")))
+                    {
+                        checkBox.Checked = enabled;
+                        log.Info($"通过名称设置自动写入选项: {checkBox.Name} = {enabled}");
+                        found = true;
+                    }
+                    else if (text.Contains("auto") && (text.Contains("write") || text.Contains("mission")))
+                    {
+                        checkBox.Checked = enabled;
+                        log.Info($"通过文本设置自动写入选项: {checkBox.Text} = {enabled}");
+                        found = true;
+                    }
+                }
+                
+                // 方法2: 尝试通过反射查找可能的设置属性
+                try
+                {
+                    var type = flightPlanner.GetType();
+                    var properties = type.GetProperties()
+                        .Where(p => p.Name.ToLower().Contains("auto") && 
+                                   (p.Name.ToLower().Contains("write") || p.Name.ToLower().Contains("mission")))
+                        .ToList();
+                    
+                    foreach (var prop in properties)
+                    {
+                        if (prop.CanWrite && prop.PropertyType == typeof(bool))
+                        {
+                            prop.SetValue(flightPlanner, enabled);
+                            log.Info($"通过反射设置自动写入属性: {prop.Name} = {enabled}");
+                            found = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Warn($"通过反射设置自动写入选项时发生错误: {ex.Message}");
+                }
+                
+                if (!found)
+                {
+                    log.Info("未找到自动写入航点相关控件或属性，可能需要手动设置");
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Warn($"设置自动写入航点选项时发生错误: {ex.Message}");
+                // 不抛出异常，继续执行
+            }
         }
 
         #endregion
