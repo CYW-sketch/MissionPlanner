@@ -628,22 +628,24 @@ namespace MissionPlanner.GCSViews
             // tabControlactions
             // 
             this.tabControlactions.ContextMenuStrip = this.contextMenuStripactionstab;
-            this.tabControlactions.Controls.Add(this.tabQuick);
-            this.tabControlactions.Controls.Add(this.tabActions);
+            //如果需要隐藏其他标签页，注释以下代码即可
+			this.tabControlactions.Controls.Add(this.tabQuick);
+			this.tabControlactions.Controls.Add(this.tabActions);
+			this.tabControlactions.Controls.Add(this.tabPageWaypoints);
+			this.tabControlactions.Controls.Add(this.tabPagemessages);
+			this.tabControlactions.Controls.Add(this.tabActionsSimple);
+			this.tabControlactions.Controls.Add(this.tabPagePreFlight);
+			this.tabControlactions.Controls.Add(this.tabGauges);
+			this.tabControlactions.Controls.Add(this.tabTransponder);
+			this.tabControlactions.Controls.Add(this.tabStatus);
+			this.tabControlactions.Controls.Add(this.tabServo);
+			this.tabControlactions.Controls.Add(this.tabAuxFunction);
+			this.tabControlactions.Controls.Add(this.tabScripts);
+			this.tabControlactions.Controls.Add(this.tabPayload);
+			this.tabControlactions.Controls.Add(this.tabTLogs);
+			this.tabControlactions.Controls.Add(this.tablogbrowse);
+            //添加广东梵亚无人机异地起降标签页
             this.tabControlactions.Controls.Add(this.tabRemoteTakeoffLanding);
-            this.tabControlactions.Controls.Add(this.tabPageWaypoints);
-            this.tabControlactions.Controls.Add(this.tabPagemessages);
-            this.tabControlactions.Controls.Add(this.tabActionsSimple);
-            this.tabControlactions.Controls.Add(this.tabPagePreFlight);
-            this.tabControlactions.Controls.Add(this.tabGauges);
-            this.tabControlactions.Controls.Add(this.tabTransponder);
-            this.tabControlactions.Controls.Add(this.tabStatus);
-            this.tabControlactions.Controls.Add(this.tabServo);
-            this.tabControlactions.Controls.Add(this.tabAuxFunction);
-            this.tabControlactions.Controls.Add(this.tabScripts);
-            this.tabControlactions.Controls.Add(this.tabPayload);
-            this.tabControlactions.Controls.Add(this.tabTLogs);
-            this.tabControlactions.Controls.Add(this.tablogbrowse);
             resources.ApplyResources(this.tabControlactions, "tabControlactions");
             this.tabControlactions.Name = "tabControlactions";
             this.tabControlactions.SelectedIndex = 0;
@@ -656,7 +658,7 @@ namespace MissionPlanner.GCSViews
 			this.tabRemoteTakeoffLanding.Controls.Add(this.pnlRemoteDestination);
             this.tabRemoteTakeoffLanding.Name = "tabRemoteTakeoffLanding";
             this.tabRemoteTakeoffLanding.UseVisualStyleBackColor = true;
-            this.tabRemoteTakeoffLanding.Text = "广东梵亚异地起降";
+            this.tabRemoteTakeoffLanding.Text = "广东梵亚无人机异地起降";
 			// 
 			// pnlRemoteDestination
 			// 
