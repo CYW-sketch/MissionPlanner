@@ -7628,13 +7628,17 @@ namespace MissionPlanner.GCSViews
 				// 设置默认值
 				ResetRemoteTakeoffLandingToDefaults();
 				
-				// 回退：启动时不加载上次保存的参数
+				// 启动时加载上次保存的参数
+				LoadRemoteTakeoffSettings();
 				
 				// 绑定输入框编辑事件，用于识别用户手动修改
 				if (txtRemoteLat != null)
 					txtRemoteLat.TextChanged += RemoteCoords_TextChanged;
 				if (txtRemoteLng != null)
 					txtRemoteLng.TextChanged += RemoteCoords_TextChanged;
+
+				// 变更即保存（文本框离开/单选与复选变更）
+				BindRemoteTakeoffSettingsAutosave();
 				
 				// 根据连接状态更新写入航点复选框
 				chkRemoteWriteWaypoints.Checked = IsConnected();
@@ -7654,6 +7658,128 @@ namespace MissionPlanner.GCSViews
 			catch (Exception ex)
 			{
 				log.Error("初始化异地起降标签页时发生错误: " + ex.Message);
+			}
+		}
+
+		private void BindRemoteTakeoffSettingsAutosave()
+		{
+			try
+			{
+				EventHandler saveIfLeave = (s, e) => SaveRemoteTakeoffSettings();
+				if (txtRemoteLat != null) txtRemoteLat.Leave += saveIfLeave;
+				if (txtRemoteLng != null) txtRemoteLng.Leave += saveIfLeave;
+				if (txtRemoteAlt != null) txtRemoteAlt.Leave += saveIfLeave;
+				if (txtDropDelaySec != null) txtDropDelaySec.Leave += saveIfLeave;
+				if (txtAirDropHeight != null) txtAirDropHeight.Leave += saveIfLeave;
+
+				EventHandler checkedChanged = (s, e) =>
+				{
+					// 仅在被选中时保存单选
+					if (s is RadioButton rb)
+					{
+						if (rb.Checked)
+							SaveRemoteTakeoffSettings();
+					}
+					else
+					{
+						SaveRemoteTakeoffSettings();
+					}
+				};
+
+				if (rdoRemoteSpeedSlow != null) rdoRemoteSpeedSlow.CheckedChanged += checkedChanged;
+				if (rdoRemoteSpeedMedium != null) rdoRemoteSpeedMedium.CheckedChanged += checkedChanged;
+				if (rdoRemoteSpeedFast != null) rdoRemoteSpeedFast.CheckedChanged += checkedChanged;
+
+				if (rdoRemoteModePassThrough != null) rdoRemoteModePassThrough.CheckedChanged += checkedChanged;
+				if (rdoRemoteModeLandWait != null) rdoRemoteModeLandWait.CheckedChanged += checkedChanged;
+				if (rdoRemoteModeLandDropReturn != null) rdoRemoteModeLandDropReturn.CheckedChanged += checkedChanged;
+				if (rdoRemoteModeAirDrop != null) rdoRemoteModeAirDrop.CheckedChanged += checkedChanged;
+
+				if (chkRemoteTerrainFollow != null) chkRemoteTerrainFollow.CheckedChanged += checkedChanged;
+				if (chkRemoteWriteWaypoints != null) chkRemoteWriteWaypoints.CheckedChanged += checkedChanged;
+			}
+			catch (Exception ex)
+			{
+				log.Warn($"绑定异地起降自动保存事件时发生错误: {ex.Message}");
+			}
+		}
+
+		private void LoadRemoteTakeoffSettings()
+		{
+			try
+			{
+				var s = MissionPlanner.Utilities.RemoteTakeoffSettings.Instance;
+				txtRemoteLat.Text = s.DestLat.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				txtRemoteLng.Text = s.DestLng.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				txtRemoteAlt.Text = s.DestAlt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+				// 速度
+				switch ((s.SpeedMode ?? "Slow").Trim())
+				{
+					case "Fast":
+						rdoRemoteSpeedFast.Checked = true; break;
+					case "Medium":
+						rdoRemoteSpeedMedium.Checked = true; break;
+					default:
+						rdoRemoteSpeedSlow.Checked = true; break;
+				}
+
+				// 模式
+				switch ((s.LandingMode ?? "PassThrough").Trim())
+				{
+					case "LandGround":
+						rdoRemoteModeLandWait.Checked = true; break;
+					case "LandCargo":
+						rdoRemoteModeLandDropReturn.Checked = true; break;
+					case "LandDrop":
+						rdoRemoteModeAirDrop.Checked = true; break;
+					default:
+						rdoRemoteModePassThrough.Checked = true; break;
+				}
+
+				txtDropDelaySec.Text = s.CargoDelaySec.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				txtAirDropHeight.Text = s.AirDropHeight.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				chkRemoteTerrainFollow.Checked = s.TerrainFollowing;
+				chkRemoteWriteWaypoints.Checked = s.WriteWaypoints;
+			}
+			catch (Exception ex)
+			{
+				log.Warn($"加载异地起降设置时发生错误: {ex.Message}");
+			}
+		}
+
+		private void SaveRemoteTakeoffSettings()
+		{
+			try
+			{
+				var s = MissionPlanner.Utilities.RemoteTakeoffSettings.Instance;
+				if (double.TryParse(txtRemoteLat.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lat))
+					s.DestLat = lat;
+				if (double.TryParse(txtRemoteLng.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+					s.DestLng = lng;
+				if (double.TryParse(txtRemoteAlt.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var alt))
+					s.DestAlt = alt;
+
+				s.SpeedMode = rdoRemoteSpeedFast.Checked ? "Fast" : (rdoRemoteSpeedMedium.Checked ? "Medium" : "Slow");
+
+				if (rdoRemoteModeLandWait.Checked) s.LandingMode = "LandGround";
+				else if (rdoRemoteModeLandDropReturn.Checked) s.LandingMode = "LandCargo";
+				else if (rdoRemoteModeAirDrop.Checked) s.LandingMode = "LandDrop";
+				else s.LandingMode = "PassThrough";
+
+				if (double.TryParse(txtDropDelaySec.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var cargo))
+					s.CargoDelaySec = cargo;
+				if (double.TryParse(txtAirDropHeight.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var drop))
+					s.AirDropHeight = drop;
+
+				s.TerrainFollowing = chkRemoteTerrainFollow.Checked;
+				s.WriteWaypoints = chkRemoteWriteWaypoints.Checked;
+
+				s.SaveSafe();
+			}
+			catch (Exception ex)
+			{
+				log.Warn($"保存异地起降设置时发生错误: {ex.Message}");
 			}
 		}
 
