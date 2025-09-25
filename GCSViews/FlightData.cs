@@ -993,6 +993,8 @@ namespace MissionPlanner.GCSViews
             if (prop != null)
                 prop.Stop();
 
+            // 回退：不在释放时保存异地起降参数
+
             if (disposing && (components != null))
             {
                 components.Dispose();
@@ -7386,9 +7388,21 @@ namespace MissionPlanner.GCSViews
 		private void ResetRemoteTakeoffLandingToDefaults()
 		{
 			// 重置目的地坐标为默认值
-			txtRemoteLat.Text = "39.904200";
-			txtRemoteLng.Text = "116.407400";
-			txtRemoteAlt.Text = "30";
+			// 检查home坐标是否有效，如果无效则使用默认坐标
+			if (IsValidHomeCoordinate())
+			{
+				// 使用home点位置作为起始点
+				txtRemoteLat.Text = MainV2.instance.FlightPlanner.TXT_homelat.Text;
+				txtRemoteLng.Text = MainV2.instance.FlightPlanner.TXT_homelng.Text;
+				txtRemoteAlt.Text = MainV2.instance.FlightPlanner.TXT_homealt.Text;
+			}
+			else
+			{
+				// 使用默认坐标（北京天安门附近）
+				txtRemoteLat.Text = "23.2252957";
+				txtRemoteLng.Text = "113.0350900";
+				txtRemoteAlt.Text = "30";
+			}
 
 			// 重置飞行速度为慢速
 			rdoRemoteSpeedSlow.Checked = true;
@@ -7426,6 +7440,49 @@ namespace MissionPlanner.GCSViews
 		}
 
 		/// <summary>
+		/// 检查home坐标是否有效
+		/// </summary>
+		/// <returns>home坐标是否有效</returns>
+		private bool IsValidHomeCoordinate()
+		{
+			try
+			{
+				// 检查坐标文本框是否为空
+				if (string.IsNullOrEmpty(MainV2.instance.FlightPlanner.TXT_homelat.Text) ||
+					string.IsNullOrEmpty(MainV2.instance.FlightPlanner.TXT_homelng.Text) ||
+					string.IsNullOrEmpty(MainV2.instance.FlightPlanner.TXT_homealt.Text))
+				{
+					return false;
+				}
+
+				// 尝试解析坐标值
+				double lat = double.Parse(MainV2.instance.FlightPlanner.TXT_homelat.Text);
+				double lng = double.Parse(MainV2.instance.FlightPlanner.TXT_homelng.Text);
+				double alt = double.Parse(MainV2.instance.FlightPlanner.TXT_homealt.Text);
+
+				// 检查坐标范围是否合理
+				// 排除(0,0)这个无效的地理位置
+				if (lat == 0 && lng == 0)
+				{
+					return false;
+				}
+
+				// 检查坐标是否在有效范围内
+				if (lat < -90 || lat > 90 || lng < -180 || lng > 180 || alt < 0)
+				{
+					return false;
+				}
+
+				return true;
+			}
+			catch
+			{
+				// 解析失败，坐标无效
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// 检测连接状态变化并自动设置相关选项
 		/// </summary>
 		private void CheckConnectionStatusAndAutoSet()
@@ -7448,6 +7505,15 @@ namespace MissionPlanner.GCSViews
 					
 					// 自动勾选FlightPlanner中的自动写入航点选项
 					SetAutoWriteWaypoints(true);
+
+					// 首次连接成功时，将异地起降默认经纬度设置为当前飞机位置（不覆盖用户已编辑的值）
+					TrySetRemoteDestinationToCurrentVehicle();
+				}
+				
+				// 如果已连接，但之前未成功自动写入，且用户也未手动编辑，则在后续循环继续尝试
+				if (currentlyConnected && !remoteCoordsAutoSetDone && !remoteCoordsManuallyEdited)
+				{
+					TrySetRemoteDestinationToCurrentVehicle();
 				}
 				
 				// 更新连接状态
@@ -7459,8 +7525,98 @@ namespace MissionPlanner.GCSViews
 			}
 		}
 
+		/// <summary>
+		/// 在安全条件下，将异地起降目的地经纬度设置为当前飞机位置。
+		/// 仅在文本框为空或仍为默认/家点值时写入，避免覆盖用户手动输入。
+		/// </summary>
+		private void TrySetRemoteDestinationToCurrentVehicle()
+		{
+			try
+			{
+				if (txtRemoteLat == null || txtRemoteLng == null)
+					return;
+
+				var cs = MainV2.comPort?.MAV?.cs;
+				if (cs == null)
+					return;
+
+				// 过滤无效坐标（连接初期可能为0或未初始化）
+				double lat = cs.lat;
+				double lng = cs.lng;
+				bool coordsValid =
+					!double.IsNaN(lat) && !double.IsInfinity(lat) &&
+					!double.IsNaN(lng) && !double.IsInfinity(lng) &&
+					Math.Abs(lat) > 1e-6 && Math.Abs(lng) > 1e-6 &&
+					lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+				if (!coordsValid)
+					return;
+
+				string currentLat = lat.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				string currentLng = lng.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+				bool canWriteLat = string.IsNullOrWhiteSpace(txtRemoteLat.Text);
+				bool canWriteLng = string.IsNullOrWhiteSpace(txtRemoteLng.Text);
+
+				// 判断是否仍为初始化时的默认值（家点或静态默认值）
+				if (!canWriteLat || !canWriteLng)
+				{
+					var fp = MainV2.instance?.FlightPlanner;
+					string homeLat = fp?.TXT_homelat?.Text;
+					string homeLng = fp?.TXT_homelng?.Text;
+
+					// 静态默认坐标（与 ResetRemoteTakeoffLandingToDefaults 保持一致）
+					const string defaultLat = "23.2252957";
+					const string defaultLng = "113.0350900";
+
+					if (!canWriteLat)
+					{
+						if ((!string.IsNullOrWhiteSpace(homeLat) && txtRemoteLat.Text == homeLat) || txtRemoteLat.Text == defaultLat)
+							canWriteLat = true;
+					}
+
+					if (!canWriteLng)
+					{
+						if ((!string.IsNullOrWhiteSpace(homeLng) && txtRemoteLng.Text == homeLng) || txtRemoteLng.Text == defaultLng)
+							canWriteLng = true;
+					}
+				}
+
+				if (canWriteLat || canWriteLng)
+				{
+					Action writeAction = () =>
+					{
+						isProgrammaticRemoteSet = true;
+						if (canWriteLat)
+							txtRemoteLat.Text = currentLat;
+						if (canWriteLng)
+							txtRemoteLng.Text = currentLng;
+						isProgrammaticRemoteSet = false;
+						// 仅当两者都为飞机位置时标记完成
+						remoteCoordsAutoSetDone = (txtRemoteLat.Text == currentLat && txtRemoteLng.Text == currentLng);
+					};
+					if (txtRemoteLat.InvokeRequired)
+						txtRemoteLat.BeginInvoke(writeAction);
+					else
+						writeAction();
+				}
+
+				// 如果不能写入（例如有一项仍不是默认/家点），不要设置完成标志，等待下次循环
+			}
+			catch (Exception ex)
+			{
+				log.Warn($"设置异地起降默认经纬度时发生错误: {ex.Message}");
+			}
+		}
+
 		// 用于跟踪连接状态的静态变量
 		private static bool lastConnectionState = false;
+
+		// 标识：用户是否手动编辑过异地起降坐标
+		private bool remoteCoordsManuallyEdited = false;
+		// 标识：是否已成功用飞机位置自动填充过一次
+		private bool remoteCoordsAutoSetDone = false;
+		// 内部标识：程序正在写入坐标，避免触发“用户编辑”标志
+		private bool isProgrammaticRemoteSet = false;
 
 		/// <summary>
 		/// 初始化异地起降标签页
@@ -7471,6 +7627,14 @@ namespace MissionPlanner.GCSViews
 			{
 				// 设置默认值
 				ResetRemoteTakeoffLandingToDefaults();
+				
+				// 回退：启动时不加载上次保存的参数
+				
+				// 绑定输入框编辑事件，用于识别用户手动修改
+				if (txtRemoteLat != null)
+					txtRemoteLat.TextChanged += RemoteCoords_TextChanged;
+				if (txtRemoteLng != null)
+					txtRemoteLng.TextChanged += RemoteCoords_TextChanged;
 				
 				// 根据连接状态更新写入航点复选框
 				chkRemoteWriteWaypoints.Checked = IsConnected();
@@ -7491,6 +7655,15 @@ namespace MissionPlanner.GCSViews
 			{
 				log.Error("初始化异地起降标签页时发生错误: " + ex.Message);
 			}
+		}
+
+
+
+		private void RemoteCoords_TextChanged(object sender, EventArgs e)
+		{
+			if (isProgrammaticRemoteSet)
+				return;
+			remoteCoordsManuallyEdited = true;
 		}
 
         private void btnStartDelivery_Click(object sender, EventArgs e)
@@ -7624,9 +7797,21 @@ namespace MissionPlanner.GCSViews
                 var flightPlanner = MainV2.instance.FlightPlanner;
                 bool found = false;
                 
-                // 方法1: 查找所有CheckBox控件，寻找可能的自动写入相关控件
-                var allCheckBoxes = flightPlanner.Controls.Find("", true).OfType<CheckBox>().ToList();
-                log.Info($"找到 {allCheckBoxes.Count} 个CheckBox控件");
+				// 方法1: 递归遍历控件树，寻找可能的自动写入相关控件（避免 Controls.Find 传空键的异常）
+				List<CheckBox> allCheckBoxes = new List<CheckBox>();
+				Action<Control> collect = null;
+				collect = (ctrl) =>
+				{
+					foreach (Control child in ctrl.Controls)
+					{
+						if (child is CheckBox cb)
+							allCheckBoxes.Add(cb);
+						if (child.HasChildren)
+							collect(child);
+					}
+				};
+				collect(flightPlanner);
+				log.Info($"找到 {allCheckBoxes.Count} 个CheckBox控件");
                 
                 foreach (var checkBox in allCheckBoxes)
                 {
