@@ -1705,13 +1705,13 @@ namespace MissionPlanner.GCSViews
                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative; // DO_CHANGE_SPEED
                     }
                     
-                    // 添加起点WAYPOINT
-                    AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
-                    // 设置起点WAYPOINT的Frame模式
-                    if (dlg.TerrainFollowing)
-                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
-                    else
-                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                    // // 添加起点WAYPOINT
+                    // AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                    // // 设置起点WAYPOINT的Frame模式
+                    // if (dlg.TerrainFollowing)
+                    //     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                    // else
+                    //     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                 }
                 else
                 {
@@ -1999,13 +1999,13 @@ namespace MissionPlanner.GCSViews
                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative; // DO_CHANGE_SPEED
                     }
                     
-                    // 添加起点WAYPOINT
-                    AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, takeoffLng, takeoffLat, takeoffAlt, null);
-                    // 设置起点WAYPOINT的Frame模式
-                    if (terrainFollowing)
-                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
-                    else
-                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                    // // 添加起点WAYPOINT
+                    // AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, takeoffLng, takeoffLat, takeoffAlt, null);
+                    // // 设置起点WAYPOINT的Frame模式
+                    // if (terrainFollowing)
+                    //     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                    // else
+                    //     Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                 }
                 else
                 {
@@ -2830,18 +2830,26 @@ namespace MissionPlanner.GCSViews
                     }
                 }
 
-                cell.Value = TXT_DefaultAlt.Text;
-
-                float ans;
-                if (float.TryParse(cell.Value.ToString(), out ans))
+                // 优先使用传入的高度值
+                if (alt > 0)
                 {
-                    ans = (int) ans;
-                    if (alt != 0) // use passed in value;
-                        cell.Value = alt.ToString();
-                    if (ans == 0) // default
-                        cell.Value = 50;
-                    if (ans == 0 && (MainV2.comPort.MAV.cs.firmware == Firmwares.ArduCopter2))
-                        cell.Value = 15;
+                    cell.Value = alt.ToString();
+                }
+                else
+                {
+                    cell.Value = TXT_DefaultAlt.Text;
+
+                    float ans;
+                    if (float.TryParse(cell.Value.ToString(), out ans))
+                    {
+                        ans = (int) ans;
+                        if (alt != 0) // use passed in value;
+                            cell.Value = alt.ToString();
+                        if (ans == 0) // default
+                            cell.Value = 50;
+                        if (ans == 0 && (MainV2.comPort.MAV.cs.firmware == Firmwares.ArduCopter2))
+                            cell.Value = 15;
+                    }
 
                     // not online and verify alt via srtm
                     if (CHK_verifyheight.Checked) // use srtm data
@@ -2872,11 +2880,6 @@ namespace MissionPlanner.GCSViews
                     }
 
                     cell.DataGridView.EndEdit();
-                }
-                else
-                {
-                    CustomMessageBox.Show("Invalid Home or wp Alt");
-                    cell.Style.BackColor = Color.Red;
                 }
             }
 
@@ -5056,7 +5059,15 @@ namespace MissionPlanner.GCSViews
                 // add delay if supplied
                 Commands.Rows[rowIndex].Cells[Param1.Index].Value = p1;
 
-                setfromMap(y, x, (int) z, Math.Round(p1, 1));
+                // 对于异地起降的航点，直接使用传入的高度值，避免使用默认高度
+                if (z > 0)
+                {
+                    setfromMap(y, x, (int) z, Math.Round(p1, 1));
+                }
+                else
+                {
+                    setfromMap(y, x, -1, Math.Round(p1, 1)); // 使用-1让setfromMap使用默认逻辑
+                }
             }
             else if (cmd == MAVLink.MAV_CMD.LOITER_UNLIM)
             {

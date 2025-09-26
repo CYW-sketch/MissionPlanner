@@ -7106,6 +7106,12 @@ namespace MissionPlanner.GCSViews
 					return;
 				}
 
+				// 计算预估时间并显示确认对话框
+				if (!ShowRemoteTakeoffLandingConfirmation())
+				{
+					return; // 用户取消
+				}
+
 				// 直接调用ProcessRemoteTakeoffLandingFromUI方法
 				ProcessRemoteTakeoffLandingFromUI();
 				
@@ -7233,12 +7239,26 @@ namespace MissionPlanner.GCSViews
 		/// </summary>
 		private void ProcessRemoteTakeoffLandingFromUI()
 		{
-			// 获取起飞点坐标（自动获取）
+			// 获取起飞点坐标 - 优先使用飞机当前位置
 			double takeoffLat = 0, takeoffLng = 0, takeoffAlt = 30;
 			bool hasValidTakeoff = false;
 
-			// 优先使用FlightPlanner的地图位置
-			if (MainV2.instance?.FlightPlanner?.MainMap != null)
+			// 首先尝试使用飞机当前位置（连接飞机后）
+			if (MainV2.comPort?.MAV?.cs != null)
+			{
+				var cs = MainV2.comPort.MAV.cs;
+				if (cs.lat != 0 && cs.lng != 0)
+				{
+					takeoffLat = cs.lat;
+					takeoffLng = cs.lng;
+					takeoffAlt = cs.alt;
+					hasValidTakeoff = true;
+					log.Info($"使用飞机当前位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}, 高度: {takeoffAlt:F1}m");
+				}
+			}
+
+			// 如果飞机位置无效，尝试使用FlightPlanner的地图位置
+			if (!hasValidTakeoff && MainV2.instance?.FlightPlanner?.MainMap != null)
 			{
 				var map = MainV2.instance.FlightPlanner.MainMap;
 				if (!map.Position.IsEmpty && Math.Abs(map.Position.Lat) > 0.001 && Math.Abs(map.Position.Lng) > 0.001)
@@ -7246,10 +7266,11 @@ namespace MissionPlanner.GCSViews
 					takeoffLat = map.Position.Lat;
 					takeoffLng = map.Position.Lng;
 					hasValidTakeoff = true;
+					log.Info($"使用FlightPlanner地图位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}");
 				}
 			}
 
-			// 如果没有有效位置，使用FlightData地图位置
+			// 如果仍然无效，尝试使用FlightData地图位置
 			if (!hasValidTakeoff && gMapControl1 != null)
 			{
 				if (!gMapControl1.Position.IsEmpty && Math.Abs(gMapControl1.Position.Lat) > 0.001 && Math.Abs(gMapControl1.Position.Lng) > 0.001)
@@ -7257,15 +7278,16 @@ namespace MissionPlanner.GCSViews
 					takeoffLat = gMapControl1.Position.Lat;
 					takeoffLng = gMapControl1.Position.Lng;
 					hasValidTakeoff = true;
+					log.Info($"使用FlightData地图位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}");
 				}
 			}
 
-			// 如果还是没有有效位置，使用默认位置
+			// 如果仍然无效，提示用户
 			if (!hasValidTakeoff)
 			{
-				takeoffLat = 39.9042;
-				takeoffLng = 116.4074;
-				takeoffAlt = 30;
+				CustomMessageBox.Show("无法获取飞机当前位置，请确保飞机已连接并获取GPS信号。", "错误", 
+					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+				return;
 			}
 
 			// 获取目的地坐标
@@ -7427,7 +7449,7 @@ namespace MissionPlanner.GCSViews
 			CheckConnectionStatusAndAutoSet();
 			
 			// 更新按钮文本以反映新功能
-			btnRemoteCancel.Text = "重置所有";
+			btnRemoteCancel.Text = "一键重置";
 		}
 
 		/// <summary>
@@ -7812,12 +7834,12 @@ namespace MissionPlanner.GCSViews
                     return;
                 }
 
-                if (MainV2.instance.FlightPlanner.Commands.Rows.Count == 0)
-                {
-                    CustomMessageBox.Show("当前没有航点任务，无法开始送货。\n请先添加航点或设置异地起降。", "提示", 
-                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
-                    return;
-                }
+                // if (MainV2.instance.FlightPlanner.Commands.Rows.Count == 0)
+                // {
+                //     CustomMessageBox.Show("当前没有航点任务，无法开始送货。\n请先添加航点或设置异地起降。", "提示", 
+                //         CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+                //     return;
+                // }
 
                 // 确认开始送货
                 var result = CustomMessageBox.Show("确定要开始送货任务吗？\n\n这将启动自动飞行模式并开始执行航点任务。", "确认开始送货", 
@@ -7992,6 +8014,260 @@ namespace MissionPlanner.GCSViews
             {
                 log.Warn($"设置自动写入航点选项时发生错误: {ex.Message}");
                 // 不抛出异常，继续执行
+            }
+        }
+
+        #endregion
+
+        #region 异地起降时间计算功能
+
+        /// <summary>
+        /// 计算异地起降的预估飞行时间
+        /// </summary>
+        /// <param name="takeoffLat">起飞纬度</param>
+        /// <param name="takeoffLng">起飞经度</param>
+        /// <param name="takeoffAlt">起飞高度</param>
+        /// <param name="landLat">降落纬度</param>
+        /// <param name="landLng">降落经度</param>
+        /// <param name="landAlt">降落高度</param>
+        /// <param name="flightSpeed">飞行速度 (m/s)</param>
+        /// <param name="landingMode">降落模式</param>
+        /// <param name="shouldLand">是否需要降落</param>
+        /// <param name="cargoTime">货物处理时间 (秒)</param>
+        /// <param name="dropHeight">空投高度 (米)</param>
+        /// <returns>预估飞行时间</returns>
+        private TimeSpan CalculateEstimatedFlightTime(
+            double takeoffLat, double takeoffLng, double takeoffAlt,
+            double landLat, double landLng, double landAlt,
+            double flightSpeed, RemoteTakeoffLandingForm.LandingMode landingMode,
+            bool shouldLand, double cargoTime, double dropHeight)
+        {
+            try
+            {
+                // 创建起飞和降落点
+                var takeoffPoint = new PointLatLngAlt(takeoffLat, takeoffLng, takeoffAlt);
+                var landPoint = new PointLatLngAlt(landLat, landLng, landAlt);
+
+                // 计算水平距离
+                double horizontalDistance = takeoffPoint.GetDistance(landPoint);
+                
+                // 计算高度差
+                double altitudeDifference = Math.Abs(landAlt - takeoffAlt);
+
+                // 计算水平飞行时间 (秒)
+                double horizontalTime = horizontalDistance / flightSpeed;
+
+                // 计算垂直飞行时间 (秒)
+                // 使用默认的上升/下降速度 (从参数中获取或使用默认值)
+                double climbSpeed = 2.0; // 默认上升速度 2 m/s
+                double descentSpeed = 1.5; // 默认下降速度 1.5 m/s
+
+                // 尝试从参数中获取实际的速度设置
+                try
+                {
+                    if (MainV2.comPort?.MAV?.param != null)
+                    {
+                        if (MainV2.comPort.MAV.param.ContainsKey("WPNAV_SPEED_UP"))
+                        {
+                            climbSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_UP"] / 100.0; // 转换为 m/s
+                        }
+                        if (MainV2.comPort.MAV.param.ContainsKey("WPNAV_SPEED_DN"))
+                        {
+                            descentSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_DN"] / 100.0; // 转换为 m/s
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Warn($"获取速度参数时发生错误，使用默认值: {ex.Message}");
+                }
+
+                double verticalTime = 0;
+                if (altitudeDifference > 0)
+                {
+                    if (landAlt > takeoffAlt)
+                    {
+                        // 需要上升
+                        verticalTime = altitudeDifference / climbSpeed;
+                    }
+                    else
+                    {
+                        // 需要下降
+                        verticalTime = altitudeDifference / descentSpeed;
+                    }
+                }
+
+                // 起飞时间 (假设需要30秒)
+                double takeoffTime = 30.0;
+
+                // 降落时间 (根据降落模式)
+                double landingTime = 0;
+                if (shouldLand)
+                {
+                    switch (landingMode)
+                    {
+                        case RemoteTakeoffLandingForm.LandingMode.LandGround:
+                            landingTime = 60.0; // 地面降落需要60秒
+                            break;
+                        case RemoteTakeoffLandingForm.LandingMode.LandCargo:
+                            landingTime = 90.0; // 货物降落需要90秒
+                            break;
+                        case RemoteTakeoffLandingForm.LandingMode.LandDrop:
+                            landingTime = 45.0; // 空投降落需要45秒
+                            break;
+                        default:
+                            landingTime = 30.0; // 默认降落时间
+                            break;
+                    }
+                }
+
+                // 空投额外时间
+                double airDropTime = 0;
+                if (landingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop && dropHeight > 0)
+                {
+                    // 空投需要额外的时间来下降到指定高度
+                    airDropTime = dropHeight / descentSpeed;
+                }
+
+                // 总时间计算
+                double totalTimeSeconds = takeoffTime + Math.Max(horizontalTime, verticalTime) + 
+                    landingTime + airDropTime + cargoTime;
+
+                // 添加10%的安全余量
+                totalTimeSeconds *= 1.1;
+
+                return TimeSpan.FromSeconds(totalTimeSeconds);
+            }
+            catch (Exception ex)
+            {
+                log.Error($"计算预估飞行时间时发生错误: {ex.Message}");
+                // 返回一个默认的预估时间
+                return TimeSpan.FromMinutes(30);
+            }
+        }
+
+        /// <summary>
+        /// 显示异地起降确认对话框，包含预估时间信息
+        /// </summary>
+        /// <returns>用户是否确认执行</returns>
+        private bool ShowRemoteTakeoffLandingConfirmation()
+        {
+            try
+            {
+                // 获取起飞点坐标 - 优先使用飞机当前位置
+                double takeoffLat = 0, takeoffLng = 0, takeoffAlt = 30;
+                bool hasValidTakeoff = false;
+
+                // 首先尝试使用飞机当前位置（连接飞机后）
+                if (MainV2.comPort?.MAV?.cs != null)
+                {
+                    var cs = MainV2.comPort.MAV.cs;
+                    if (cs.lat != 0 && cs.lng != 0)
+                    {
+                        takeoffLat = cs.lat;
+                        takeoffLng = cs.lng;
+                        takeoffAlt = cs.alt;
+                        hasValidTakeoff = true;
+                        log.Info($"使用飞机当前位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}, 高度: {takeoffAlt:F1}m");
+                    }
+                }
+
+                // 如果飞机位置无效，尝试使用FlightPlanner的地图位置
+                if (!hasValidTakeoff && MainV2.instance?.FlightPlanner?.MainMap != null)
+                {
+                    var mapCenter = MainV2.instance.FlightPlanner.MainMap.Position;
+                    if (mapCenter.Lat != 0 && mapCenter.Lng != 0)
+                    {
+                        takeoffLat = mapCenter.Lat;
+                        takeoffLng = mapCenter.Lng;
+                        takeoffAlt = 30; // 默认高度
+                        hasValidTakeoff = true;
+                        log.Info($"使用地图中心位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}");
+                    }
+                }
+
+                // 如果仍然无效，提示用户
+                if (!hasValidTakeoff)
+                {
+                    CustomMessageBox.Show("无法获取飞机当前位置，请确保飞机已连接并获取GPS信号。", "错误", 
+                        CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                // 获取目的地坐标
+                double landLat = double.Parse(txtRemoteLat.Text);
+                double landLng = double.Parse(txtRemoteLng.Text);
+                double landAlt = double.Parse(txtRemoteAlt.Text);
+
+                // 获取飞行速度
+                double flightSpeed = 5.0; // 默认慢速
+                if (rdoRemoteSpeedMedium.Checked)
+                    flightSpeed = 10.0; // 中速
+                else if (rdoRemoteSpeedFast.Checked)
+                    flightSpeed = 15.0; // 高速
+
+                // 获取降落模式
+                RemoteTakeoffLandingForm.LandingMode landingMode = RemoteTakeoffLandingForm.LandingMode.PassThrough;
+                if (rdoRemoteModeLandWait.Checked)
+                    landingMode = RemoteTakeoffLandingForm.LandingMode.LandGround;
+                else if (rdoRemoteModeLandDropReturn.Checked)
+                    landingMode = RemoteTakeoffLandingForm.LandingMode.LandCargo;
+                else if (rdoRemoteModeAirDrop.Checked)
+                    landingMode = RemoteTakeoffLandingForm.LandingMode.LandDrop;
+
+                // 获取其他参数
+                bool shouldLand = landingMode != RemoteTakeoffLandingForm.LandingMode.PassThrough;
+                double cargoTime = rdoRemoteModeLandDropReturn.Checked ? double.Parse(txtDropDelaySec.Text) : 0;
+                double dropHeight = rdoRemoteModeAirDrop.Checked ? double.Parse(txtAirDropHeight.Text) : 0;
+
+                // 计算预估时间
+                var estimatedTime = CalculateEstimatedFlightTime(
+                    takeoffLat, takeoffLng, takeoffAlt,
+                    landLat, landLng, landAlt,
+                    flightSpeed, landingMode, shouldLand,
+                    cargoTime, dropHeight);
+
+                // 计算距离
+                var takeoffPoint = new PointLatLngAlt(takeoffLat, takeoffLng, takeoffAlt);
+                var landPoint = new PointLatLngAlt(landLat, landLng, landAlt);
+                double distance = takeoffPoint.GetDistance(landPoint);
+
+                // 构建确认消息
+                string timeInfo = $"预估飞行时间: {estimatedTime.TotalMinutes:F1} 分钟";
+                if (estimatedTime.TotalHours >= 1)
+                {
+                    timeInfo = $"预估飞行时间: {estimatedTime.Hours}小时{estimatedTime.Minutes}分钟";
+                }
+
+                string speedText = rdoRemoteSpeedSlow.Checked ? "慢速 (5m/s)" : 
+                    (rdoRemoteSpeedMedium.Checked ? "中速 (10m/s)" : "快速 (15m/s)");
+
+                string modeText = "经过模式";
+                if (rdoRemoteModeLandWait.Checked) modeText = "地面降落";
+                else if (rdoRemoteModeLandDropReturn.Checked) modeText = "货物降落";
+                else if (rdoRemoteModeAirDrop.Checked) modeText = "空投降落";
+
+                string message = $"确定要开始异地起降任务吗？\n\n" +
+                    $"📍 起点: {takeoffLat:F6}, {takeoffLng:F6} (高度: {takeoffAlt:F0}m)\n" +
+                    $"🎯 终点: {landLat:F6}, {landLng:F6} (高度: {landAlt:F0}m)\n" +
+                    $"📏 距离: {distance:F0} 米\n" +
+                    $"🚀 飞行速度: {speedText}\n" +
+                    $"🛬 降落模式: {modeText}\n" +
+                    $"⏱️ {timeInfo}\n\n" +
+                    $"这将启动自动飞行模式并开始执行航点任务。";
+
+                var result = CustomMessageBox.Show(message, "确认开始异地起降", 
+                    CustomMessageBox.MessageBoxButtons.YesNo, CustomMessageBox.MessageBoxIcon.Question);
+
+                return result == CustomMessageBox.DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                log.Error($"显示异地起降确认对话框时发生错误: {ex.Message}");
+                // 如果出错，显示简单的确认对话框
+                var result = CustomMessageBox.Show("确定要开始异地起降任务吗？", "确认开始异地起降", 
+                    CustomMessageBox.MessageBoxButtons.YesNo, CustomMessageBox.MessageBoxIcon.Question);
+                return result == CustomMessageBox.DialogResult.Yes;
             }
         }
 

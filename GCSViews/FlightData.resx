@@ -1581,7 +1581,7 @@
     <value>4</value>
   </data>
   <data name="btnStartDelivery.Text" xml:space="preserve">
-    <value>开始送货</value>
+    <value>开始执行</value>
   </data>
   <data name="&gt;&gt;btnStartDelivery.Name" xml:space="preserve">
     <value>btnStartDelivery</value>
@@ -1725,7 +1725,7 @@
     <value>120, 36</value>
   </data>
   <data name="btnRemoteStart.Text" xml:space="preserve">
-    <value>开始送货</value>
+    <value>开始执行</value>
   </data>
   <data name=">>btnRemoteStart.Name" xml:space="preserve">
     <value>btnRemoteStart</value>
