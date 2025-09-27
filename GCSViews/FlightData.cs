@@ -7400,7 +7400,8 @@ namespace MissionPlanner.GCSViews
 		{
 			txtRemoteLat.Text = "";
 			txtRemoteLng.Text = "";
-			txtRemoteAlt.Text = "";
+			// 保留高度值，不清空
+			// txtRemoteAlt.Text = "";
 			txtDropDelaySec.Text = "";
 			txtAirDropHeight.Text = "";
 		}
@@ -7414,16 +7415,22 @@ namespace MissionPlanner.GCSViews
 			// 检查home坐标是否有效，如果无效则使用默认坐标
 			if (IsValidHomeCoordinate())
 			{
-				// 使用home点位置作为起始点
+				// 使用home点位置作为起始点，但高度保持上一次填入的值
 				txtRemoteLat.Text = MainV2.instance.FlightPlanner.TXT_homelat.Text;
 				txtRemoteLng.Text = MainV2.instance.FlightPlanner.TXT_homelng.Text;
-				txtRemoteAlt.Text = MainV2.instance.FlightPlanner.TXT_homealt.Text;
+				// 高度不重置，保持用户上次填入的值
 			}
 			else
 			{
 				// 使用默认坐标（北京天安门附近）
 				txtRemoteLat.Text = "23.2252957";
 				txtRemoteLng.Text = "113.0350900";
+				// 高度不重置，保持用户上次填入的值
+			}
+			
+			// 只有在高度为空时才设置默认高度
+			if (string.IsNullOrEmpty(txtRemoteAlt.Text))
+			{
 				txtRemoteAlt.Text = "30";
 			}
 
@@ -8250,7 +8257,7 @@ namespace MissionPlanner.GCSViews
                 else if (rdoRemoteModeAirDrop.Checked) modeText = "空投降落";
 
                 string message = $"确定要开始异地起降任务吗？\n\n" +
-                    $"📍 起点: {takeoffLat:F6}, {takeoffLng:F6} (高度: {takeoffAlt:F0}m)\n" +
+                    $"📍 起点: {takeoffLat:F6}, {takeoffLng:F6} (高度: {landAlt:F0}m)\n" +
                     $"🎯 终点: {landLat:F6}, {landLng:F6} (高度: {landAlt:F0}m)\n" +
                     $"📏 距离: {distance:F0} 米\n" +
                     $"🚀 飞行速度: {speedText}\n" +
