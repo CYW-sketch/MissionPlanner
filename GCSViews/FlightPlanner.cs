@@ -604,7 +604,7 @@ namespace MissionPlanner.GCSViews
                                 // 如前一段以 LAND 结束，则先起飞
                                 if (needTakeoffBeforeThisSegment)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat,dlg.TakeoffAlt, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.LandAlt, null);
                                     
                                     // 在起飞指令后添加速度设置指令
                                     AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
@@ -668,7 +668,7 @@ namespace MissionPlanner.GCSViews
                                 // 经过模式：只插入 WAYPOINT（高度默认30）
                                 if (needTakeoffBeforeThisSegment)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.LandAlt, null);
                                     // 设置TAKEOFF的Frame模式
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
@@ -1687,8 +1687,8 @@ namespace MissionPlanner.GCSViews
                         catch { }
                     }
                     
-                    // 添加TAKEOFF指令
-                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.TakeoffAlt, null);
+                    // 添加TAKEOFF指令 - 使用目的地高度作为起飞高度
+                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, dlg.LandAlt, null);
                     
                     // 在起飞指令后添加速度设置指令
                     AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
@@ -1718,7 +1718,7 @@ namespace MissionPlanner.GCSViews
                     // 非首次：检查是否需要添加TAKEOFF
                     if (needTakeoffBeforeThisSegment)
                     {
-                        AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.TakeoffAlt, null);
+                        AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.LandAlt, null);
                         
                         // 在起飞指令后添加速度设置指令
                         AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
@@ -1981,8 +1981,8 @@ namespace MissionPlanner.GCSViews
                     }
                     catch { }
                     
-                    // 添加TAKEOFF指令
-                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, takeoffAlt, null);
+                    // 添加TAKEOFF指令 - 使用目的地高度作为起飞高度
+                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, landAlt, null);
                     
                     // 在起飞指令后添加速度设置指令
                     AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, flightSpeed, 0, 0, 0, 0, 0, null);
@@ -2012,7 +2012,7 @@ namespace MissionPlanner.GCSViews
                     // 非首次：检查是否需要添加TAKEOFF
                     if (needTakeoffBeforeThisSegment)
                     {
-                        AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, takeoffLng, takeoffLat, takeoffAlt, null);
+                        AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, takeoffLng, takeoffLat, landAlt, null);
                         
                         // 在起飞指令后添加速度设置指令
                         AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, flightSpeed, 0, 0, 0, 0, 0, null);

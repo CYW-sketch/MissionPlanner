@@ -7251,7 +7251,8 @@ namespace MissionPlanner.GCSViews
 				{
 					takeoffLat = cs.lat;
 					takeoffLng = cs.lng;
-					takeoffAlt = cs.alt;
+					// 使用飞机当前高度，如果为0则使用默认高度30米
+					takeoffAlt = cs.alt > 0 ? cs.alt : 30;
 					hasValidTakeoff = true;
 					log.Info($"使用飞机当前位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}, 高度: {takeoffAlt:F1}m");
 				}
@@ -8166,7 +8167,8 @@ namespace MissionPlanner.GCSViews
                     {
                         takeoffLat = cs.lat;
                         takeoffLng = cs.lng;
-                        takeoffAlt = cs.alt;
+                        // 使用飞机当前高度，如果为0则使用默认高度30米
+                        takeoffAlt = cs.alt > 0 ? cs.alt : 30;
                         hasValidTakeoff = true;
                         log.Info($"使用飞机当前位置作为起点: {takeoffLat:F6}, {takeoffLng:F6}, 高度: {takeoffAlt:F1}m");
                     }
