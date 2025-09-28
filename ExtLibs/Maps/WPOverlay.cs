@@ -2,6 +2,7 @@
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
 using MissionPlanner.Controls.Waypoints;
+using MissionPlanner;
 using MissionPlanner.Maps;
 using MissionPlanner.Utilities;
 using System;
@@ -9,12 +10,29 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Diagnostics;
 
 namespace MissionPlanner.ArduPilot
 {
     public class WPOverlay
     {
         public GMapOverlay overlay = new GMapOverlay("WPOverlay");
+
+        // 连接后可读取的速度参数（单位：m/s）
+        public float? FlightSpeedMS { get; private set; }
+        public float? ClimbSpeedMS { get; private set; }
+        public float? DescentSpeedMS { get; private set; }
+
+        // 全局最近一次已知的飞行速度（用于其他视图复用）
+        public static float? LastKnownFlightSpeedMS { get; private set; }
+
+        // 当前 Home（用于计算距离与时间）
+        private PointLatLngAlt _currentHome = PointLatLngAlt.Zero;
+        
+        // 任务中的速度变化历史（索引 -> 速度 m/s）
+        private Dictionary<int, float> _missionSpeedChanges = new Dictionary<int, float>();
+        // 航点标签到任务索引的映射（用于根据航点回溯最近的速度变更）
+        private Dictionary<string, int> _wpTagToMissionIndex = new Dictionary<string, int>();
 
         /// <summary>
         /// list of points as per the mission
@@ -25,9 +43,66 @@ namespace MissionPlanner.ArduPilot
         /// </summary>
         List<PointLatLngAlt> route = new List<PointLatLngAlt>();
 
+        /// <summary>
+        /// 刷新飞行器速度相关参数（需已连接）。
+        /// </summary>
+        /// <param name="isConnected">是否已连接到飞行器</param>
+        /// <param name="param">飞行器参数字典</param>
+        public void RefreshSpeedParams(bool isConnected, dynamic param = null)
+        {
+            try
+            {
+                if (!isConnected || param == null)
+                {
+                    // Debug.WriteLine($"[WPOverlay] RefreshSpeedParams skipped: isConnected={isConnected}, param={(param == null ? "null" : "ok")}");
+                    return;
+                }
+
+                FlightSpeedMS = null;
+                ClimbSpeedMS = null;
+                DescentSpeedMS = null;
+
+                // 飞行速度：优先取地速（WPNAV_SPEED / WP_SPEED_MAX），否则退回空速（TRIM_ARSPD_CM）
+                if (param.ContainsKey("WPNAV_SPEED"))
+                {
+                    try { FlightSpeedMS = (float)param["WPNAV_SPEED"] / 100.0f; } catch { try { FlightSpeedMS = ((dynamic)param["WPNAV_SPEED"]).float_value / 100.0f; } catch { } }
+                }
+                if (FlightSpeedMS == null && param.ContainsKey("WP_SPEED_MAX"))
+                {
+                    try { FlightSpeedMS = (float)param["WP_SPEED_MAX"] / 100.0f; } catch { try { FlightSpeedMS = ((dynamic)param["WP_SPEED_MAX"]).float_value / 100.0f; } catch { } }
+                }
+                if (FlightSpeedMS == null && param.ContainsKey("TRIM_ARSPD_CM"))
+                {
+                    try { FlightSpeedMS = (float)param["TRIM_ARSPD_CM"] / 100.0f; } catch { try { FlightSpeedMS = ((dynamic)param["TRIM_ARSPD_CM"]).float_value / 100.0f; } catch { } }
+                }
+
+                // 记录为全局最近一次速度，供其他视图使用
+                LastKnownFlightSpeedMS = FlightSpeedMS ?? LastKnownFlightSpeedMS;
+
+                // 垂直速度：WPNAV_SPEED_UP / WPNAV_SPEED_DN（cm/s）
+                if (param.ContainsKey("WPNAV_SPEED_UP"))
+                {
+                    try { ClimbSpeedMS = (float)param["WPNAV_SPEED_UP"] / 100.0f; } catch { try { ClimbSpeedMS = ((dynamic)param["WPNAV_SPEED_UP"]).float_value / 100.0f; } catch { } }
+                }
+                if (param.ContainsKey("WPNAV_SPEED_DN"))
+                {
+                    try { DescentSpeedMS = (float)param["WPNAV_SPEED_DN"] / 100.0f; } catch { try { DescentSpeedMS = ((dynamic)param["WPNAV_SPEED_DN"]).float_value / 100.0f; } catch { } }
+                }
+
+                // Debug.WriteLine($"[WPOverlay] Speed params => FLT={FlightSpeedMS?.ToString("0.00") ?? "null"} m/s, UP={ClimbSpeedMS?.ToString("0.00") ?? "null"} m/s, DN={DescentSpeedMS?.ToString("0.00") ?? "null"} m/s");
+            }
+            catch
+            {
+                // 忽略读取失败，保持为 null
+                // Debug.WriteLine($"[WPOverlay] RefreshSpeedParams failed: isConnected={isConnected}, param={(param == null ? "null" : "ok")}");
+            }
+        }
+
         public void CreateOverlay(PointLatLngAlt home, List<Locationwp> missionitems, double wpradius, double loiterradius, double altunitmultiplier)
         {
             overlay.Clear();
+            _missionSpeedChanges.Clear(); // 清空速度变化历史
+            _wpTagToMissionIndex.Clear();
 
             GMapPolygon fencepoly = null;
 
@@ -46,6 +121,7 @@ namespace MissionPlanner.ArduPilot
 
             if (home != PointLatLngAlt.Zero)
             {
+                _currentHome = home;
                 home.Tag = "H";
                 pointlist.Add(home);
                 route.Add(pointlist[pointlist.Count - 1]);
@@ -96,6 +172,7 @@ namespace MissionPlanner.ArduPilot
                         }
                         
                         route.Add(pointlist[pointlist.Count - 1]);
+                        _wpTagToMissionIndex[waypointCounter.ToString()] = a;
                         addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, null, wpradius);
                         waypointCounter++;
@@ -106,6 +183,7 @@ namespace MissionPlanner.ArduPilot
                             item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
                             waypointCounter.ToString()));
                         route.Add(pointlist[pointlist.Count - 1]);
+                        _wpTagToMissionIndex[waypointCounter.ToString()] = a;
                         addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, null, wpradius);
                         waypointCounter++;
@@ -211,6 +289,7 @@ namespace MissionPlanner.ArduPilot
                             else
                                 route.Add(pointlist[pointlist.Count - 1]);
 
+                            _wpTagToMissionIndex[waypointCounter.ToString()] = a;
                             addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                                 item.alt * altunitmultiplier, Color.LightBlue, this_loiterradius);
                             waypointCounter++;
@@ -223,6 +302,7 @@ namespace MissionPlanner.ArduPilot
                                 waypointCounter.ToString())
                             {Tag2 = "spline"});
                         route.Add(pointlist[pointlist.Count - 1]);
+                        _wpTagToMissionIndex[waypointCounter.ToString()] = a;
                         addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                             item.alt * altunitmultiplier, Color.Green, wpradius);
                         waypointCounter++;
@@ -241,6 +321,7 @@ namespace MissionPlanner.ArduPilot
                                 item.alt + gethomealt((MAVLink.MAV_FRAME) item.frame, item.lat, item.lng),
                                 waypointCounter.ToString()));
                             route.Add(pointlist[pointlist.Count - 1]);
+                            _wpTagToMissionIndex[waypointCounter.ToString()] = a;
                             addpolygonmarker(waypointCounter.ToString(), item.lng, item.lat,
                                 item.alt * altunitmultiplier, null, wpradius);
                             waypointCounter++;
@@ -255,6 +336,15 @@ namespace MissionPlanner.ArduPilot
                     maxlat = Math.Max(item.lat, maxlat);
                     minlong = Math.Min(item.lng, minlong);
                     minlat = Math.Min(item.lat, minlat);
+                }
+                else if (command == (ushort)MAVLink.MAV_CMD.DO_CHANGE_SPEED) // 记录速度变化
+                {
+                    pointlist.Add(null);
+                    // p1 是速度值（m/s）
+                    if (item.p2 > 0)
+                    {
+                        _missionSpeedChanges[a] = (float)item.p2;
+                    }
                 }
                 else if (command == (ushort)MAVLink.MAV_CMD.DO_JUMP) // fix do jumps into the future
                 {
@@ -399,11 +489,16 @@ namespace MissionPlanner.ArduPilot
                 if(type == MAVLink.MAV_MISSION_TYPE.MISSION)
                 {
                     m = new GMapMarkerWP(point, tag);
-                    if (alt.HasValue)
+                    //如果是home点
+                    if(tag=="H")
                     {
                         m.ToolTipMode = MarkerTooltipMode.OnMouseOver;
-                        m.ToolTipText = "Alt: " + alt.Value.ToString("0");
                     }
+                    else
+                    {
+                        m.ToolTipMode = MarkerTooltipMode.Always;
+                    }
+                    m.ToolTipText = BuildWaypointTooltip(tag, lat, lng, alt);
                     m.Tag = tag;
                 }
                 else if (type == MAVLink.MAV_MISSION_TYPE.FENCE)
@@ -444,6 +539,134 @@ namespace MissionPlanner.ArduPilot
             catch (Exception)
             {
             }
+        }
+
+        private string BuildWaypointTooltip(string tag, double lat, double lng, double? alt)
+        {
+            try
+            {
+                string altText = alt.HasValue ? ("Alt: " + alt.Value.ToString("0")) : string.Empty;
+
+                // 仅对任务航点（数字标签）计算距离和时间
+                bool isNumeric = int.TryParse(tag, out _);
+
+                if (!isNumeric || _currentHome == PointLatLngAlt.Zero)
+                {
+                    return string.IsNullOrEmpty(altText) ? tag : ($"{tag}\n{altText}");
+                }
+
+                var wp = new PointLatLngAlt(lat, lng, 0, tag);
+                double meters = _currentHome.GetDistance(wp);
+                string distText = FormatDistance(meters);
+
+                string timeText = string.Empty;
+                var usedSpeed = GetEffectiveSpeedAtWaypoint(tag);
+                double totalSeconds = 0;
+                bool hasAny = false;
+
+                // 水平飞行时间
+                if (usedSpeed.HasValue && usedSpeed.Value > 0.01f)
+                {
+                    totalSeconds += meters / usedSpeed.Value;
+                    hasAny = true;
+                }
+
+                // 垂直爬升/下降时间（使用真实米制高度：pointlist 中的 Alt）
+                double? targetAltM = GetWaypointAltMeters(tag);
+                double homeAltM = _currentHome.Alt;
+                if (targetAltM.HasValue)
+                {
+                    double delta = Math.Abs(targetAltM.Value - homeAltM);
+                    if (ClimbSpeedMS.HasValue && ClimbSpeedMS.Value > 0.01f)
+                    {
+                        totalSeconds += delta / ClimbSpeedMS.Value; // 上升时间
+                        hasAny = true;
+                    }
+                    if (DescentSpeedMS.HasValue && DescentSpeedMS.Value > 0.01f)
+                    {
+                        totalSeconds += delta / DescentSpeedMS.Value; // 下降时间
+                        hasAny = true;
+                    }
+                }
+
+                if (hasAny)
+                {
+                    timeText = FormatDuration(totalSeconds);
+                }
+
+                if (!string.IsNullOrEmpty(altText) && !string.IsNullOrEmpty(timeText))
+                    return $"{tag}\n{altText}\n目的地距离: {distText}\n飞行速度:{usedSpeed?.ToString("0.00")}m/s\n上升速度:{ClimbSpeedMS?.ToString("0.00")}m/s\n下降速度:{DescentSpeedMS?.ToString("0.00")}m/s\n预计时间: {timeText}";
+                if (!string.IsNullOrEmpty(altText))
+                    return $"{tag}\n{altText}\n目的地距离: {distText}";
+                if (!string.IsNullOrEmpty(timeText))
+                    return $"{tag}\n目的地距离: {distText}\n预计时间: {timeText}";
+                return $"{tag}\n目的地距离: {distText}";
+            }
+            catch
+            {
+                return tag;
+            }
+        }
+
+        private double? GetWaypointAltMeters(string tag)
+        {
+            try
+            {
+                
+                var p = pointlist.FirstOrDefault(x => x != null && x.Tag == tag);
+                if (p != null)
+                    return p.Alt; // meters
+            }
+            catch { }
+            return null;
+        }
+
+        private float? GetEffectiveSpeedAtWaypoint(string tag)
+        {
+            try
+            {
+                if (!_wpTagToMissionIndex.TryGetValue(tag, out var wpIndex))
+                    return FlightSpeedMS ?? LastKnownFlightSpeedMS;
+
+                // 查找该航点对应的任务索引之前最近的速度变化指令
+                float? missionSpeed = null;
+                for (int i = wpIndex; i >= 0; i--)
+                {
+                    if (_missionSpeedChanges.ContainsKey(i))
+                    {
+                        missionSpeed = _missionSpeedChanges[i];
+                        break;
+                    }
+                }
+
+                // 优先使用任务中设置的速度，否则使用参数中的默认速度
+                if (missionSpeed.HasValue)
+                {
+                    return missionSpeed.Value;
+                }
+                
+                // 回退到参数中的速度
+                return FlightSpeedMS ?? LastKnownFlightSpeedMS;
+            }
+            catch { }
+            return null;
+        }
+
+        private static string FormatDistance(double meters)
+        {
+            if (meters >= 1000)
+                return (meters / 1000.0).ToString("0.0") + " km";
+            return meters.ToString("0") + " m";
+        }
+
+        private static string FormatDuration(double seconds)
+        {
+            if (seconds < 60)
+                return seconds.ToString("0") + " s";
+            var ts = TimeSpan.FromSeconds(seconds);
+            if (ts.TotalHours >= 1)
+                return string.Format("{0}h {1}m", (int)ts.TotalHours, ts.Minutes);
+            return string.Format("{0}m {1}s", ts.Minutes, ts.Seconds);
         }
 
         private void RegenerateWPRoute(List<PointLatLngAlt> fullpointlist, PointLatLngAlt HomeLocation,

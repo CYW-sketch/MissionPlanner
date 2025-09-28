@@ -3067,6 +3067,11 @@ namespace MissionPlanner.GCSViews
                         if (TXT_WPRad.Text == "") TXT_WPRad.Text = startupWPradius;
                         if (TXT_loiterrad.Text == "") TXT_loiterrad.Text = "30";
 
+                        // 先刷新速度参数，再创建覆盖层
+                        wpOverlay.RefreshSpeedParams(
+                            MainV2.comPort?.BaseStream?.IsOpen ?? false,
+                            MainV2.comPort?.MAV?.param);
+                        
                         wpOverlay.CreateOverlay(home,
                             commandlist,
                             double.Parse(TXT_WPRad.Text) / CurrentState.multiplierdist,

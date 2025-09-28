@@ -3931,6 +3931,12 @@ namespace MissionPlanner.GCSViews
                                 }
 
                                 var wpOverlay = new WPOverlay();
+                                // 刷新速度参数，以便在飞行数据界面的航点提示中包含水平与垂直（上升/下降）时间
+                                try
+                                {
+                                    wpOverlay.RefreshSpeedParams(MainV2.comPort.BaseStream.IsOpen, MainV2.comPort.MAV.param);
+                                }
+                                catch { }
 
                                 {
                                     List<Locationwp> mission_items;

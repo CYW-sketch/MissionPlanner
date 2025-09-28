@@ -33,6 +33,7 @@
     </ProjectReference>
 
     <ProjectReference Include="..\Utilities\MissionPlanner.Utilities.csproj" />
+    <ProjectReference Include="..\ArduPilot\MissionPlanner.ArduPilot.csproj" />
   </ItemGroup>
 
   <ItemGroup>
