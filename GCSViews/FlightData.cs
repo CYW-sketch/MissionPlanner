@@ -53,6 +53,11 @@ namespace MissionPlanner.GCSViews
         internal static GMapOverlay rallypointoverlay;
         internal static GMapOverlay tfrpolygons;
         internal GMapMarker CurrentGMapMarker;
+        private GMapMarkerRect CurentRectMarker; // 当前被拖拽的航点边框标记（含 InnerMarker 为数字航点或 H）
+        private bool isMouseDown; // 鼠标按下状态（用于拖拽）
+        private bool isMouseDraging; // 是否正在拖拽航点
+        private System.Windows.Forms.Timer _wpWriteReadDebounceTimer; // 拖拽后延时写入/读取
+        private HashSet<ushort> _pendingWpWriteIndices = new HashSet<ushort>();
 
         internal PointLatLng MouseDownStart;
 
@@ -433,6 +438,32 @@ namespace MissionPlanner.GCSViews
             gMapControl1.Overlays.Add(rallypointoverlay);
 
             gMapControl1.Overlays.Add(poioverlay);
+
+            // 初始化 3 秒防抖写入/读取定时器（保证一定建立）
+            if (_wpWriteReadDebounceTimer == null)
+            {
+                _wpWriteReadDebounceTimer = new System.Windows.Forms.Timer();
+                _wpWriteReadDebounceTimer.Interval = 3000;
+                _wpWriteReadDebounceTimer.Tick += (s, e2) =>
+                {
+                    try
+                    {
+                        _wpWriteReadDebounceTimer.Stop();
+                        if (_pendingWpWriteIndices.Count == 0)
+                            return;
+
+                        if (MainV2.comPort != null && MainV2.comPort.BaseStream.IsOpen)
+                        {
+                            try { MissionPlanner.GCSViews.FlightPlanner.instance?.BUT_write_Click(null, null); } catch { }
+                            try { MissionPlanner.GCSViews.FlightPlanner.instance?.BUT_read_Click(null, null); } catch { }
+                        }
+                    }
+                    finally
+                    {
+                        _pendingWpWriteIndices.Clear();
+                    }
+                };
+            }
 
             float gspeedMax = Settings.Instance.GetFloat("GspeedMAX");
             if (gspeedMax != 0)
@@ -3083,6 +3114,63 @@ namespace MissionPlanner.GCSViews
                 return;
             }
 
+            // 开始拖拽优先级：命中航点矩形/航点内层标记 -> 禁止地图拖动
+            if (e.Button == MouseButtons.Left)
+            {
+                GMapMarkerRect hitRect = null;
+
+                if (CurrentGMapMarker is GMapMarkerRect)
+                {
+                    hitRect = CurrentGMapMarker as GMapMarkerRect;
+                }
+                else if (CurrentGMapMarker != null)
+                {
+                    // 若命中的是内层航点标记，查找其对应的矩形边框
+                    foreach (var ov in gMapControl1.Overlays)
+                    {
+                        foreach (var mk in ov.Markers)
+                        {
+                            var rc = mk as GMapMarkerRect;
+                            if (rc == null)
+                                continue;
+                            if (rc.InnerMarker == CurrentGMapMarker)
+                            {
+                                hitRect = rc; break;
+                            }
+                            // 备用匹配：通过 Tag 对应
+                            if (CurrentGMapMarker.Tag != null && rc.Tag != null &&
+                                CurrentGMapMarker.Tag.ToString() == rc.Tag.ToString())
+                            {
+                                hitRect = rc; break;
+                            }
+                        }
+                        if (hitRect != null) break;
+                    }
+                }
+                else
+                {
+                    // 最后兜底：通过 IsMouseOver 命中矩形
+                    foreach (var ov in gMapControl1.Overlays)
+                    {
+                        foreach (var mk in ov.Markers)
+                        {
+                            var rc = mk as GMapMarkerRect;
+                            if (rc != null && rc.IsMouseOver)
+                            { hitRect = rc; break; }
+                        }
+                        if (hitRect != null) break;
+                    }
+                }
+
+                if (hitRect != null)
+                {
+                    CurentRectMarker = hitRect;
+                    isMouseDown = true;
+                    isMouseDraging = false;
+                    try { gMapControl1.CanDragMap = false; } catch { }
+                }
+            }
+
             if (CurrentGMapMarker is GMapMarkerADSBPlane)
             {
                 var marker = CurrentGMapMarker as GMapMarkerADSBPlane;
@@ -3111,8 +3199,28 @@ namespace MissionPlanner.GCSViews
 
         private void gMapControl1_MouseMove(object sender, MouseEventArgs e)
         {
+            // 若正在拖拽航点，则移动标记，不做地图平移
+            if (isMouseDown && CurentRectMarker != null && e.Button == MouseButtons.Left)
+            {
+                PointLatLng point = gMapControl1.FromLocalToLatLng(e.X, e.Y);
+                var pnew = new PointLatLng(point.Lat, point.Lng);
+
+                CurentRectMarker.Position = pnew;
+                if (CurentRectMarker.InnerMarker != null)
+                {
+                    CurentRectMarker.InnerMarker.Position = pnew;
+                }
+
+                isMouseDraging = true;
+                return;
+            }
+
             if (e.Button == MouseButtons.Left)
             {
+                // 若正在拖拽航点，不触发地图平移
+                if (isMouseDown && CurentRectMarker != null)
+                    return;
+
                 PointLatLng point = gMapControl1.FromLocalToLatLng(e.X, e.Y);
 
                 double latdif = MouseDownStart.Lat - point.Lat;
@@ -3132,6 +3240,10 @@ namespace MissionPlanner.GCSViews
 
                 if (Settings.Instance.GetBoolean("CHK_disttohomeflightdata") != false)
                 {
+                    // 鼠标悬停时，如有拖拽活动正在进行，不显示距离气泡，避免干扰
+                    if (isMouseDown && CurentRectMarker != null)
+                        return;
+
                     PointLatLng point = gMapControl1.FromLocalToLatLng(e.X, e.Y);
 
                     marker = new GMapMarkerRect(point);
@@ -3160,16 +3272,76 @@ namespace MissionPlanner.GCSViews
             }
 
             center.Position = gMapControl1.Position;
+
+            // 初始化延时写入/读取定时器（只需一次）
+            if (_wpWriteReadDebounceTimer == null)
+            {
+                _wpWriteReadDebounceTimer = new System.Windows.Forms.Timer();
+                _wpWriteReadDebounceTimer.Interval = 3000; // 3 秒
+                _wpWriteReadDebounceTimer.Tick += (s, e) =>
+                {
+                    try
+                    {
+                        _wpWriteReadDebounceTimer.Stop();
+                        if (_pendingWpWriteIndices.Count == 0)
+                            return;
+
+                        // 若已连接，则执行写入与读取
+                        if (MainV2.comPort != null && MainV2.comPort.BaseStream.IsOpen)
+                        {
+                            try
+                            {
+                                // 执行整套写入与读取，保持与规划器一致的行为
+                                // 写入
+                                try { MissionPlanner.GCSViews.FlightPlanner.instance?.BUT_write_Click(null, null); } catch { }
+                            }
+                            catch { }
+
+                            // 读回
+                            try { MissionPlanner.GCSViews.FlightPlanner.instance?.BUT_read_Click(null, null); } catch { }
+                        }
+                    }
+                    finally
+                    {
+                        _pendingWpWriteIndices.Clear();
+                    }
+                };
+            }
         }
 
         void gMapControl1_OnMarkerEnter(GMapMarker item)
         {
             CurrentGMapMarker = item;
+            // 记录可拖拽的矩形边框
+            if (item is GMapMarkerRect)
+            {
+                CurentRectMarker = item as GMapMarkerRect;
+            }
+            else if (item != null)
+            {
+                // 命中内层标记时，也尝试预先定位其矩形，提升命中准确性
+                foreach (var ov in gMapControl1.Overlays)
+                {
+                    foreach (var mk in ov.Markers)
+                    {
+                        var rc = mk as GMapMarkerRect;
+                        if (rc == null) continue;
+                        if (rc.InnerMarker == item)
+                        { CurentRectMarker = rc; break; }
+                        if (item.Tag != null && rc.Tag != null && item.Tag.ToString() == rc.Tag.ToString())
+                        { CurentRectMarker = rc; break; }
+                    }
+                    if (CurentRectMarker != null) break;
+                }
+            }
         }
 
         void gMapControl1_OnMarkerLeave(GMapMarker item)
         {
             CurrentGMapMarker = null;
+            // 非拖拽中离开则清空
+            if (!isMouseDraging)
+                CurentRectMarker = null;
         }
 
         private void gMapControl1_OnPositionChanged(PointLatLng point)
@@ -3177,6 +3349,165 @@ namespace MissionPlanner.GCSViews
             center.Position = point;
 
             UpdateOverlayVisibility();
+        }
+
+        // 根据 WPOverlay 的计数规则，将数字标签映射到 mission 索引
+        private int? MapWaypointTagToMissionIndex(string tag, List<Locationwp> missionItems)
+        {
+            if (string.IsNullOrEmpty(tag)) return null;
+            if (!int.TryParse(tag, out var want)) return null;
+
+            int waypointCounter = 1;
+            for (int a = 0; a < missionItems.Count; a++)
+            {
+                var item = missionItems[a];
+                var itemnext = a + 1 < missionItems.Count ? missionItems[a + 1] : default(Locationwp);
+                ushort command = item.id;
+
+                bool navigatable = command < (ushort)MAVLink.MAV_CMD.LAST &&
+                                   command != (ushort)MAVLink.MAV_CMD.RETURN_TO_LAUNCH &&
+                                   command != (ushort)MAVLink.MAV_CMD.CONTINUE_AND_CHANGE_ALT &&
+                                   command != (ushort)MAVLink.MAV_CMD.DELAY &&
+                                   command != (ushort)MAVLink.MAV_CMD.GUIDED_ENABLE
+                                   || command == (ushort)MAVLink.MAV_CMD.DO_SET_ROI ||
+                                      command == (ushort)MAVLink.MAV_CMD.DO_LAND_START;
+
+                if (navigatable)
+                {
+                    // 特殊落地/ROI/样条等在 WPOverlay 中都会消耗一个计数（带坐标者）
+                    if ((command == (ushort)MAVLink.MAV_CMD.LAND || command == (ushort)MAVLink.MAV_CMD.VTOL_LAND) && item.lat == 0 && item.lng == 0)
+                    {
+                        continue; // 无坐标的 LAND 不计入
+                    }
+
+                    // 有坐标的点计数+1
+                    if (!(item.lat == 0 && item.lng == 0))
+                    {
+                        if (waypointCounter == want)
+                            return a;
+                        waypointCounter++;
+                    }
+                }
+                else
+                {
+                    // 非导航命令不计入
+                }
+            }
+
+            return null;
+        }
+
+        // 提交航点更新到 MAV.wps，并刷新飞行数据界面的任务覆盖层
+        private void CommitDraggedWaypointAndRefresh(string tag, PointLatLng newPos)
+        {
+            try
+            {
+                // 从设备缓存的 wps 构建按 key 排序的列表
+                var ordered = MainV2.comPort.MAV.wps.OrderBy(kv => kv.Key).ToList();
+                if (ordered.Count <= 1)
+                    return;
+
+                // 去掉 key 最小的 home（与 CreateOverlay 的 removeAt(0) 一致）
+                var missionItems = ordered.Skip(1).Select(kv => (Locationwp)kv.Value).ToList();
+
+                var idx = MapWaypointTagToMissionIndex(tag, missionItems);
+                if (!idx.HasValue)
+                    return;
+
+                // 找到实际的字典 key（+1 因为跳过了 home）
+                var kvTarget = ordered[idx.Value + 1];
+                var loc = (Locationwp)kvTarget.Value;
+
+                // 保留原有 alt/frame，仅更新 lat/lng
+                loc.lat = newPos.Lat;
+                loc.lng = newPos.Lng;
+
+                MainV2.comPort.MAV.wps[kvTarget.Key] = loc;
+
+                // 若已连接，尝试写回飞控该单条航点（非强制）
+                try
+                {
+                    if (MainV2.comPort.BaseStream.IsOpen)
+                    {
+                        var ans = MainV2.comPort.setWP(loc, (ushort)kvTarget.Key, (MAVLink.MAV_FRAME)loc.frame);
+                        // 忽略返回值处理，失败也至少本地已更新并会重绘
+                    }
+                }
+                catch { }
+
+                // 重建并替换覆盖层（复用现有刷新逻辑）
+                updateClearMissionRouteMarkers();
+
+                var wps = MainV2.comPort.MAV.wps.Values.ToList();
+                if (wps.Count >= 1)
+                {
+                    var homeplla = new PointLatLngAlt(MainV2.comPort.MAV.cs.HomeLocation.Lat,
+                        MainV2.comPort.MAV.cs.HomeLocation.Lng,
+                        MainV2.comPort.MAV.cs.HomeLocation.Alt / CurrentState.multiplieralt, "H");
+
+                    if (homeplla.Lat == 0 && homeplla.Lng == 0)
+                    {
+                        homeplla = new PointLatLngAlt(MainV2.comPort.MAV.cs.PlannedHomeLocation.Lat,
+                            MainV2.comPort.MAV.cs.PlannedHomeLocation.Lng,
+                            MainV2.comPort.MAV.cs.PlannedHomeLocation.Alt / CurrentState.multiplieralt, "H");
+                    }
+
+                    var wpOverlay = new WPOverlay();
+                    try { wpOverlay.RefreshSpeedParams(MainV2.comPort.BaseStream.IsOpen, MainV2.comPort.MAV.param); } catch { }
+
+                    var mission_items = MainV2.comPort.MAV.wps.OrderBy(kv => kv.Key).Skip(1).Select(a => (Locationwp)a.Value).ToList();
+                    wpOverlay.CreateOverlay(homeplla, mission_items,
+                        0 / CurrentState.multiplieralt, 0 / CurrentState.multiplieralt,
+                        CurrentState.multiplieralt);
+
+                    var existing = gMapControl1.Overlays.Where(a => a.Id == wpOverlay.overlay.Id).ToList();
+                    foreach (var b in existing)
+                    {
+                        gMapControl1.Overlays.Remove(b);
+                    }
+                    gMapControl1.Overlays.Insert(1, wpOverlay.overlay);
+                    wpOverlay.overlay.ForceUpdate();
+
+                    // 同步更新飞行计划界面的表格/显示（若存在实例）
+                    try
+                    {
+                        var planner = MissionPlanner.GCSViews.FlightPlanner.instance;
+                        if (planner != null)
+                        {
+                            // 定位对应行并更新 DataGridView
+                            int rowIndex = MapWaypointTagToMissionIndex(tag, mission_items) ?? -1;
+                            var lat = newPos.Lat;
+                            var lng = newPos.Lng;
+                            if (rowIndex >= 0)
+                            {
+                                // 更安全的同步方式：复用 FlightPlanner 的拖拽更新入口
+                                planner.InvokeIfRequired(() =>
+                                {
+                                    planner.callMeDrag(tag, lat, lng, -2);
+                                });
+                            }
+                            else
+                            {
+                                // 回退：无法映射时全量重绘
+                                planner.InvokeIfRequired(() => planner.writeKML());
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // 启动/重置 3 秒延时的写入+读取任务
+                if (kvTarget.Key > 0)
+                {
+                    _pendingWpWriteIndices.Add((ushort)kvTarget.Key);
+                    if (_wpWriteReadDebounceTimer != null)
+                    {
+                        _wpWriteReadDebounceTimer.Stop();
+                        _wpWriteReadDebounceTimer.Start();
+                    }
+                }
+            }
+            catch { }
         }
 
         private void gMapControl1_Resize(object sender, EventArgs e)
@@ -6209,6 +6540,35 @@ namespace MissionPlanner.GCSViews
 
             if (gMapControl1.Core.IsDragging)
                 return;
+
+            // 拖拽结束提交
+            if (isMouseDown && CurentRectMarker != null && isMouseDraging)
+            {
+                try
+                {
+                    string tag = CurentRectMarker.Tag as string;
+                    if (string.IsNullOrEmpty(tag) && CurentRectMarker.InnerMarker != null)
+                        tag = CurentRectMarker.InnerMarker.Tag as string;
+
+                    if (!string.IsNullOrEmpty(tag) && tag != "H")
+                    {
+                        CommitDraggedWaypointAndRefresh(tag, CurentRectMarker.Position);
+                    }
+                }
+                finally
+                {
+                    isMouseDown = false;
+                    isMouseDraging = false;
+                    CurentRectMarker = null;
+                    try { gMapControl1.CanDragMap = true; } catch { }
+                }
+                return;
+            }
+
+            isMouseDown = false;
+            isMouseDraging = false;
+            CurentRectMarker = null;
+            try { gMapControl1.CanDragMap = true; } catch { }
 
             if (CurrentGMapMarker != null && CurrentGMapMarker.Tag is MAVState && MouseDownStart == MouseDownEnd && Settings.Instance.GetBoolean("ClickSwapMAV", false))
             {
