@@ -2401,10 +2401,27 @@ namespace MissionPlanner.GCSViews
 
             try
             {
-                selectedrow = int.Parse(pointno) - 1;
-                Commands.CurrentCell = Commands[1, selectedrow];
-                // depending on the dragged item, selectedrow can be reset
-                selectedrow = int.Parse(pointno) - 1;
+                // 优先使用 wpOverlay 提供的航点标签 -> 任务索引映射
+                int? mapped = null;
+                if (wpOverlay != null)
+                {
+                    mapped = wpOverlay.GetMissionIndexByTag(pointno);
+                }
+
+                if (mapped.HasValue && mapped.Value >= 0 && mapped.Value < Commands.Rows.Count)
+                {
+                    selectedrow = mapped.Value;
+                    Commands.CurrentCell = Commands[1, selectedrow];
+                }
+                else
+                {
+                    // 回退旧逻辑：数字标签 N -> 行 N-1
+                    int n;
+                    if (!int.TryParse(pointno, out n))
+                        return;
+                    selectedrow = Math.Max(0, Math.Min(Commands.Rows.Count - 1, n - 1));
+                    Commands.CurrentCell = Commands[1, selectedrow];
+                }
             }
             catch
             {
@@ -9492,9 +9509,22 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     }
                 }
 
+                // 优先使用 wpOverlay 的映射（航点数字从1开始，但命令列表为0基索引）
+                if (wpOverlay != null)
+                {
+                    var idx = wpOverlay.GetMissionIndexByTag(item.Tag.ToString());
+                    if (idx.HasValue && idx.Value >= 0 && idx.Value < Commands.Rows.Count)
+                    {
+                        Commands.CurrentCell = Commands[0, idx.Value];
+                        return;
+                    }
+                }
+
+                // 回退旧逻辑：将数字标签 N 映射到行 N-1
                 if (int.TryParse(item.Tag.ToString(), out answer))
                 {
-                    Commands.CurrentCell = Commands[0, answer - 1];
+                    int row = Math.Max(0, Math.Min(Commands.Rows.Count - 1, answer - 1));
+                    Commands.CurrentCell = Commands[0, row];
                 }
             }
             catch (Exception ex)
@@ -9513,15 +9543,28 @@ Column 1: Field type (RALLY is the only one at the moment -- may have RALLY_LAND
                     rc.Pen.Color = Color.Red;
                     MainMap.Invalidate(false);
 
-                    int answer;
-                    if (item.Tag != null && rc.InnerMarker != null &&
-                        int.TryParse(rc.InnerMarker.Tag.ToString(), out answer))
+                    if (item.Tag != null && rc.InnerMarker != null)
                     {
                         try
                         {
-                            Commands.CurrentCell = Commands[0, answer - 1];
-                            //item.ToolTipText = "Alt: " + Commands[Alt.Index, answer - 1].Value;
-                            //item.ToolTipMode = MarkerTooltipMode.OnMouseOver;
+                            // 优先使用 wpOverlay 映射
+                            if (wpOverlay != null)
+                            {
+                                var idx = wpOverlay.GetMissionIndexByTag(rc.InnerMarker.Tag?.ToString());
+                                if (idx.HasValue && idx.Value >= 0 && idx.Value < Commands.Rows.Count)
+                                {
+                                    Commands.CurrentCell = Commands[0, idx.Value];
+                                }
+                                else
+                                {
+                                    // 回退旧逻辑
+                                    if (int.TryParse(rc.InnerMarker.Tag?.ToString(), out int answer))
+                                    {
+                                        int row = Math.Max(0, Math.Min(Commands.Rows.Count - 1, answer - 1));
+                                        Commands.CurrentCell = Commands[0, row];
+                                    }
+                                }
+                            }
                         }
                         catch (Exception ex)
                         {

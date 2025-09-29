@@ -35,6 +35,21 @@ namespace MissionPlanner.ArduPilot
         private Dictionary<string, int> _wpTagToMissionIndex = new Dictionary<string, int>();
 
         /// <summary>
+        /// 通过航点在地图上的数字标签，获取其对应的任务行索引（0-based）。
+        /// 返回 null 表示未找到映射，调用方可退回旧逻辑。
+        /// </summary>
+        public int? GetMissionIndexByTag(string tag)
+        {
+            if (string.IsNullOrEmpty(tag))
+                return null;
+
+            if (_wpTagToMissionIndex.TryGetValue(tag, out var idx))
+                return idx;
+
+            return null;
+        }
+
+        /// <summary>
         /// list of points as per the mission
         /// </summary>
         public List<PointLatLngAlt> pointlist = new List<PointLatLngAlt>();
