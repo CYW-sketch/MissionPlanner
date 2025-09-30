@@ -560,7 +560,7 @@ namespace MissionPlanner.ArduPilot
         {
             try
             {
-                string altText = alt.HasValue ? ("Alt: " + alt.Value.ToString("0")) : string.Empty;
+                string altText = alt.HasValue ? ("飞行高度: " + alt.Value.ToString("0")) : string.Empty;
 
                 // 仅对任务航点（数字标签）计算距离和时间
                 bool isNumeric = int.TryParse(tag, out _);
@@ -610,7 +610,7 @@ namespace MissionPlanner.ArduPilot
                 }
 
                 if (!string.IsNullOrEmpty(altText) && !string.IsNullOrEmpty(timeText))
-                    return $"{tag}\n{altText}\n目的地距离: {distText}\n飞行速度:{usedSpeed?.ToString("0.00")}m/s\n上升速度:{ClimbSpeedMS?.ToString("0.00")}m/s\n下降速度:{DescentSpeedMS?.ToString("0.00")}m/s\n预计时间: {timeText}";
+                    return $"{tag}\n{altText}\n目的地距离: {distText}\n飞行速度:{usedSpeed?.ToString("0.00")}m/s\n预计时间: {timeText}";
                 if (!string.IsNullOrEmpty(altText))
                     return $"{tag}\n{altText}\n目的地距离: {distText}";
                 if (!string.IsNullOrEmpty(timeText))

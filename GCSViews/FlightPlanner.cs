@@ -615,6 +615,18 @@ namespace MissionPlanner.GCSViews
                                     else
                                         Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
                                 }
+                                else if (!isFirst)
+                                {
+                                    // 如果不需要起飞且不是首次设置，但需要设置新的飞行速度，则在航点前添加速度设置指令
+                                    AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                                    
+                                    // 设置速度指令的Frame模式
+                                    if (dlg.TerrainFollowing)
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                                    else
+                                        Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                                }
+                                
                                 // 异地起降段：WAYPOINT(至降落点,30m) → DO_DIGICAM_CONFIGURE → LAND
                                 AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, dlg.LandAlt, null);
                                 // 设置WAYPOINT的Frame模式
@@ -669,12 +681,28 @@ namespace MissionPlanner.GCSViews
                                 if (needTakeoffBeforeThisSegment)
                                 {
                                     AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, dlg.TakeoffLng, dlg.TakeoffLat, dlg.LandAlt, null);
+                                    
+                                    // 在起飞指令后添加速度设置指令
+                                    AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                                    
                                     // 设置TAKEOFF的Frame模式
+                                    if (dlg.TerrainFollowing)
+                                        Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Terrain; // TAKEOFF
+                                    else
+                                        Commands.Rows[Commands.Rows.Count - 2].Cells[Frame.Index].Value = altmode.Relative; // TAKEOFF
+                                }
+                                else if (!isFirst)
+                                {
+                                    // 如果不需要起飞且不是首次设置，但需要设置新的飞行速度，则在航点前添加速度设置指令
+                                    AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, dlg.FlightSpeed, 0, 0, 0, 0, 0, null);
+                                    
+                                    // 设置速度指令的Frame模式
                                     if (dlg.TerrainFollowing)
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                                     else
                                         Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
                                 }
+                                
                                 AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat,dlg.LandAlt, null);
                                 // 设置WAYPOINT的Frame模式
                                 if (dlg.TerrainFollowing)
@@ -2029,6 +2057,17 @@ namespace MissionPlanner.GCSViews
                             Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative; // DO_CHANGE_SPEED
                         }
                     }
+                    else if (!isFirst)
+                    {
+                        // 如果不需要起飞且不是首次设置，但需要设置新的飞行速度，则在航点前添加速度设置指令
+                        AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, flightSpeed, 0, 0, 0, 0, 0, null);
+                        
+                        // 设置速度指令的Frame模式
+                        if (terrainFollowing)
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                        else
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                    }
                 }
 
                 // 根据用户选择生成不同指令序列
@@ -2085,6 +2124,18 @@ namespace MissionPlanner.GCSViews
                 else
                 {
                     // 经过模式：只插入 WAYPOINT
+                    // 如果前面没有添加速度设置指令且不是首次设置，则在这里添加
+                    if (!needTakeoffBeforeThisSegment && !isFirst)
+                    {
+                        AddCommand(MAVLink.MAV_CMD.DO_CHANGE_SPEED, 0, flightSpeed, 0, 0, 0, 0, 0, null);
+                        
+                        // 设置速度指令的Frame模式
+                        if (terrainFollowing)
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                        else
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Relative;
+                    }
+                    
                     AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, landLng, landLat, landAlt, null);
                     // 设置WAYPOINT的Frame模式
                     if (terrainFollowing)
