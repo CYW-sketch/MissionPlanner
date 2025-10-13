@@ -443,6 +443,17 @@ namespace MissionPlanner
         public static int comPortBaud = 57600;
 
         /// <summary>
+        /// 自动连接管理
+        /// </summary>
+        public static AutoConnectManager AutoConnectManager = new AutoConnectManager();
+
+        /// <summary>
+        /// 上次手动连接的地址和端口（用于手动重连）
+        /// </summary>
+        private static string _lastManualHost = "";
+        private static string _lastManualPort = "";
+
+        /// <summary>
         /// mono detection
         /// </summary>
         public static bool MONO = false;
@@ -654,6 +665,9 @@ namespace MissionPlanner
 
             // load config
             LoadConfig();
+
+            // 加载自动连接配置
+            LoadAutoConnectConfig();
 
             // force language to be loaded
             L10N.GetConfigLang();
@@ -1370,9 +1384,343 @@ namespace MissionPlanner
             MyView.ShowScreen("Terminal");
         }
 
+        /// <summary>
+        /// 加载自动连接配置
+        /// </summary>
+        private void LoadAutoConnectConfig()
+        {
+            try
+            {
+                // 获取本机IP地址作为默认主地址
+                string localIP = GetLocalIPAddress();
+                
+                string primaryHost = Settings.Instance.GetString("AutoConnect_PrimaryHost", localIP);
+                string backupHost = Settings.Instance.GetString("AutoConnect_BackupHost", "192.168.4.13");
+                string port = Settings.Instance.GetString("AutoConnect_Port", "5760");
+                bool enabled = Settings.Instance.GetBoolean("AutoConnect_Enabled", true); // 默认启用
+
+                // 设置TCP地址配置
+                AutoConnectManager.SetTcpAddresses(primaryHost, backupHost, port);
+                
+                // 加载上次连接的TCP地址作为当前地址
+                string lastHost = Settings.Instance.GetString("LastTCP_Host", "");
+                if (!string.IsNullOrEmpty(lastHost))
+                {
+                    AutoConnectManager.CurrentTcpHost = lastHost;
+                    log.Info($"Loaded last TCP host: {lastHost}");
+                }
+                
+                if (enabled)
+                {
+                    AutoConnectManager.EnableAutoConnect();
+                }
+
+                log.Info($"AutoConnect configured - Primary: {primaryHost}, Backup: {backupHost}, Port: {port}, Enabled: {enabled}");
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error loading auto connect config", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取本机IP地址
+        /// </summary>
+        private string GetLocalIPAddress()
+        {
+            try
+            {
+                using (var socket = new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork, System.Net.Sockets.SocketType.Dgram, 0))
+                {
+                    socket.Connect("8.8.8.8", 65530);
+                    var endPoint = socket.LocalEndPoint as System.Net.IPEndPoint;
+                    return endPoint?.Address.ToString() ?? "127.0.0.1";
+                }
+            }
+            catch
+            {
+                return "127.0.0.1";
+            }
+        }
+
+        /// <summary>
+        /// 更新连接状态
+        /// </summary>
+        public void UpdateConnectionStatus(bool isConnected)
+        {
+            try
+            {
+                _connectionControl.IsConnected(isConnected);
+                
+                // 直接更新连接图标，避免访问私有方法
+                if (isConnected)
+                {
+                    this.MenuConnect.Image = displayicons.disconnect;
+                    this.MenuConnect.Image.Tag = "Disconnect";
+                }
+                else
+                {
+                    this.MenuConnect.Image = displayicons.connect;
+                    this.MenuConnect.Image.Tag = "Connect";
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error updating connection status", ex);
+            }
+        }
+
+        /// <summary>
+        /// 显示手动连接对话框
+        /// </summary>
+        private void ShowManualConnectDialog()
+        {
+            try
+            {
+                // 创建手动连接对话框
+                using (var dialog = new Form())
+                {
+                    dialog.Text = "手动连接";
+                    dialog.Size = new Size(350, 150);
+                    dialog.StartPosition = FormStartPosition.CenterParent;
+                    dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    dialog.MaximizeBox = false;
+                    dialog.MinimizeBox = false;
+
+                    // 地址标签
+                    var lblHost = new Label
+                    {
+                        Text = "地址:",
+                        Location = new Point(20, 20),
+                        Size = new Size(50, 20)
+                    };
+
+                    // 地址输入框
+                    var txtHost = new TextBox
+                    {
+                        Location = new Point(80, 18),
+                        Size = new Size(150, 20),
+                        Text = !string.IsNullOrEmpty(_lastManualHost) ? _lastManualHost : AutoConnectManager.PrimaryTcpHost
+                    };
+
+                    // 端口标签
+                    var lblPort = new Label
+                    {
+                        Text = "端口:",
+                        Location = new Point(20, 50),
+                        Size = new Size(50, 20)
+                    };
+
+                    // 端口输入框
+                    var txtPort = new TextBox
+                    {
+                        Location = new Point(80, 48),
+                        Size = new Size(150, 20),
+                        Text = !string.IsNullOrEmpty(_lastManualPort) ? _lastManualPort : AutoConnectManager.TcpPort
+                    };
+
+                    // 确定按钮
+                    var btnOK = new Button
+                    {
+                        Text = "连接",
+                        Location = new Point(150, 80),
+                        Size = new Size(75, 25),
+                        DialogResult = DialogResult.OK
+                    };
+
+                    // 取消按钮
+                    var btnCancel = new Button
+                    {
+                        Text = "取消",
+                        Location = new Point(235, 80),
+                        Size = new Size(75, 25),
+                        DialogResult = DialogResult.Cancel
+                    };
+
+                    // 添加控件到对话框
+                    dialog.Controls.AddRange(new Control[] { lblHost, txtHost, lblPort, txtPort, btnOK, btnCancel });
+
+                    // 设置默认按钮
+                    dialog.AcceptButton = btnOK;
+                    dialog.CancelButton = btnCancel;
+
+                    if (dialog.ShowDialog() == DialogResult.OK)
+                    {
+                        // 验证输入
+                        if (string.IsNullOrWhiteSpace(txtHost.Text))
+                        {
+                            CustomMessageBox.Show("请输入有效的地址", "错误");
+                            return;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(txtPort.Text) || !int.TryParse(txtPort.Text, out int port))
+                        {
+                            CustomMessageBox.Show("请输入有效的端口号", "错误");
+                            return;
+                        }
+
+                        // 保存手动连接信息
+                        _lastManualHost = txtHost.Text;
+                        _lastManualPort = txtPort.Text;
+
+                        // 创建TCP连接
+                        var tcpSerial = new TcpSerial();
+                        tcpSerial.Host = txtHost.Text;
+                        tcpSerial.Port = port.ToString();
+                        comPort.BaseStream = tcpSerial;
+                        _connectionControl.CMB_serialport.Text = "TCP";
+
+                        // 标记为手动连接
+                        AutoConnectManager.MarkManualConnect();
+
+                        // 执行连接
+                        doConnect(comPort, "preset", "0");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error showing manual connect dialog", ex);
+                CustomMessageBox.Show("显示手动连接对话框时发生错误: " + ex.Message, "错误");
+            }
+        }
+
+        /// <summary>
+        /// 配置自动连接设置
+        /// </summary>
+        private void ConfigureAutoConnect()
+        {
+            try
+            {
+                // 获取当前配置
+                string primaryHost = AutoConnectManager.PrimaryTcpHost;
+                string backupHost = AutoConnectManager.BackupTcpHost;
+                string port = AutoConnectManager.TcpPort;
+
+                // 创建配置对话框
+                using (var dialog = new Form())
+                {
+                    dialog.Text = "自动连接配置";
+                    dialog.Size = new Size(400, 200);
+                    dialog.StartPosition = FormStartPosition.CenterParent;
+
+                    // 主TCP地址
+                    var lblPrimary = new Label
+                    {
+                        Text = "主TCP地址:",
+                        Location = new Point(20, 20),
+                        Size = new Size(80, 20)
+                    };
+                    var txtPrimary = new TextBox
+                    {
+                        Text = primaryHost,
+                        Location = new Point(100, 18),
+                        Size = new Size(200, 20)
+                    };
+
+                    // 备用TCP地址
+                    var lblBackup = new Label
+                    {
+                        Text = "备用TCP地址:",
+                        Location = new Point(20, 50),
+                        Size = new Size(80, 20)
+                    };
+                    var txtBackup = new TextBox
+                    {
+                        Text = backupHost,
+                        Location = new Point(100, 48),
+                        Size = new Size(200, 20)
+                    };
+
+                    // 端口
+                    var lblPort = new Label
+                    {
+                        Text = "端口:",
+                        Location = new Point(20, 80),
+                        Size = new Size(80, 20)
+                    };
+                    var txtPort = new TextBox
+                    {
+                        Text = port,
+                        Location = new Point(100, 78),
+                        Size = new Size(100, 20)
+                    };
+
+                    // 启用自动连接
+                    var chkEnabled = new CheckBox
+                    {
+                        Text = "启用自动连接",
+                        Location = new Point(20, 110),
+                        Size = new Size(150, 20),
+                        Checked = AutoConnectManager.IsEnabled
+                    };
+
+                    // 确定按钮
+                    var btnOK = new Button
+                    {
+                        Text = "确定",
+                        Location = new Point(200, 140),
+                        Size = new Size(75, 25),
+                        DialogResult = DialogResult.OK
+                    };
+
+                    // 取消按钮
+                    var btnCancel = new Button
+                    {
+                        Text = "取消",
+                        Location = new Point(285, 140),
+                        Size = new Size(75, 25),
+                        DialogResult = DialogResult.Cancel
+                    };
+
+                    dialog.Controls.AddRange(new Control[] { lblPrimary, txtPrimary, lblBackup, txtBackup, lblPort, txtPort, chkEnabled, btnOK, btnCancel });
+
+                    if (dialog.ShowDialog() == DialogResult.OK)
+                    {
+                        // 保存配置
+                        AutoConnectManager.SetTcpAddresses(txtPrimary.Text, txtBackup.Text, txtPort.Text);
+                        
+                        if (chkEnabled.Checked)
+                        {
+                            AutoConnectManager.EnableAutoConnect();
+                        }
+                        else
+                        {
+                            AutoConnectManager.DisableAutoConnect();
+                        }
+
+                        // 保存到设置
+                        Settings.Instance["AutoConnect_PrimaryHost"] = txtPrimary.Text;
+                        Settings.Instance["AutoConnect_BackupHost"] = txtBackup.Text;
+                        Settings.Instance["AutoConnect_Port"] = txtPort.Text;
+                        Settings.Instance["AutoConnect_Enabled"] = chkEnabled.Checked.ToString();
+
+                        CustomMessageBox.Show("自动连接配置已保存", "配置成功");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error configuring auto connect", ex);
+                CustomMessageBox.Show("配置自动连接时发生错误: " + ex.Message, "错误");
+            }
+        }
+
         public void doDisconnect(MAVLinkInterface comPort)
         {
             log.Info("We are disconnecting");
+            
+            // 保存当前连接信息（如果是TCP连接）
+            if (comPort.BaseStream is TcpSerial tcpStream)
+            {
+                _lastManualHost = tcpStream.Host;
+                _lastManualPort = tcpStream.Port.ToString();
+                log.Info($"Saved manual connection info: {_lastManualHost}:{_lastManualPort}");
+            }
+            
+            // 标记为手动断开连接
+            AutoConnectManager.MarkManualDisconnect();
+            
             try
             {
                 if (speechEngine != null) // cancel all pending speech
@@ -1455,8 +1803,23 @@ namespace MissionPlanner
                     });
                     break;
                 case "TCP":
-                    comPort.BaseStream = new TcpSerial();
+                    var tcpSerial = new TcpSerial();
+                    comPort.BaseStream = tcpSerial;
                     _connectionControl.CMB_serialport.Text = "TCP";
+                    
+                    // 设置默认端口，避免弹出端口输入框
+                    // 只让用户输入地址，端口使用默认值
+                    tcpSerial.Port = AutoConnectManager.TcpPort;
+                    
+                    // 根据连接类型设置标志
+                    if (AutoConnectManager.IsAutoConnecting)
+                    {
+                        AutoConnectManager.MarkAutoConnect();
+                    }
+                    else
+                    {
+                        AutoConnectManager.MarkManualConnect();
+                    }
                     break;
                 case "UDP":
                     comPort.BaseStream = new UdpSerial();
@@ -1800,6 +2163,22 @@ namespace MissionPlanner
 
                     // set connected icon
                     this.MenuConnect.Image = displayicons.disconnect;
+                    
+                    // 如果是TCP连接，初始化自动连接管理器
+                    if (comPort.BaseStream is TcpSerial)
+                    {
+                        // 检测当前连接的TCP地址
+                        var tcpSerial = comPort.BaseStream as TcpSerial;
+                        if (!string.IsNullOrEmpty(tcpSerial.Host))
+                        {
+                            // 设置当前TCP地址到自动连接管理器
+                            AutoConnectManager.CurrentTcpHost = tcpSerial.Host;
+                            log.Info($"Detected current TCP host: {tcpSerial.Host}");
+                        }
+                        
+                        AutoConnectManager.Initialize();
+                        AutoConnectManager.EnableAutoConnect();
+                    }
                 });
             }
             catch (Exception ex)
@@ -1871,7 +2250,17 @@ namespace MissionPlanner
             }
             else
             {
-                doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
+                // 检查是否是手动连接（非自动连接）
+                if (!AutoConnectManager.IsAutoConnecting)
+                {
+                    // 手动连接，显示地址和端口输入对话框
+                    ShowManualConnectDialog();
+                }
+                else
+                {
+                    // 自动连接，使用默认配置
+                    doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
+                }
             }
 
             _connectionControl.UpdateSysIDS();
@@ -4797,6 +5186,330 @@ namespace MissionPlanner
                     break;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 自动连接管理器 - 支持TCP地址自动切换
+    /// </summary>
+    public class AutoConnectManager
+    {
+        private static readonly ILog log = LogManager.GetLogger(typeof(AutoConnectManager));
+        
+        private bool _isEnabled = false;
+        private bool _isManualDisconnect = false;
+        private bool _isAutoConnecting = false;
+        private string _primaryTcpHost = "";
+        private string _backupTcpHost = "";
+        private string _tcpPort = "5760";
+        private DateTime _lastConnectionCheck = DateTime.Now;
+        private DateTime _lastValidPacket = DateTime.Now;
+        private System.Threading.Timer _connectionMonitorTimer;
+        private bool _isReconnecting = false;
+
+        /// <summary>
+        /// 是否启用自动连接
+        /// </summary>
+        public bool IsEnabled
+        {
+            get { return _isEnabled; }
+            set { _isEnabled = value; }
+        }
+
+        /// <summary>
+        /// 是否正在自动连接
+        /// </summary>
+        public bool IsAutoConnecting
+        {
+            get { return _isAutoConnecting; }
+            set { _isAutoConnecting = value; }
+        }
+
+        /// <summary>
+        /// 主TCP地址
+        /// </summary>
+        public string PrimaryTcpHost
+        {
+            get { return _primaryTcpHost; }
+            set { _primaryTcpHost = value; }
+        }
+
+        /// <summary>
+        /// 备用TCP地址
+        /// </summary>
+        public string BackupTcpHost
+        {
+            get { return _backupTcpHost; }
+            set { _backupTcpHost = value; }
+        }
+
+        /// <summary>
+        /// TCP端口
+        /// </summary>
+        public string TcpPort
+        {
+            get { return _tcpPort; }
+            set { _tcpPort = value; }
+        }
+
+        /// <summary>
+        /// 当前使用的TCP地址
+        /// </summary>
+        public string CurrentTcpHost { get; set; } = "";
+
+        /// <summary>
+        /// 初始化自动连接管理器
+        /// </summary>
+        public void Initialize()
+        {
+            if (_connectionMonitorTimer != null)
+            {
+                _connectionMonitorTimer.Dispose();
+            }
+
+            _connectionMonitorTimer = new System.Threading.Timer(CheckConnectionStatus, null, 1000, 1000);
+            log.Info("AutoConnectManager initialized");
+        }
+
+        /// <summary>
+        /// 设置TCP地址配置
+        /// </summary>
+        /// <param name="primaryHost">主TCP地址</param>
+        /// <param name="backupHost">备用TCP地址</param>
+        /// <param name="port">端口</param>
+        public void SetTcpAddresses(string primaryHost, string backupHost, string port)
+        {
+            _primaryTcpHost = primaryHost;
+            _backupTcpHost = backupHost;
+            _tcpPort = port;
+            CurrentTcpHost = primaryHost;
+            log.Info($"AutoConnectManager configured - Primary: {primaryHost}, Backup: {backupHost}, Port: {port}");
+        }
+
+        /// <summary>
+        /// 启用自动连接
+        /// </summary>
+        public void EnableAutoConnect()
+        {
+            _isEnabled = true;
+            _isManualDisconnect = false;
+            log.Info("AutoConnectManager enabled");
+        }
+
+        /// <summary>
+        /// 禁用自动连接
+        /// </summary>
+        public void DisableAutoConnect()
+        {
+            _isEnabled = false;
+            log.Info("AutoConnectManager disabled");
+        }
+
+        /// <summary>
+        /// 标记为手动断开连接
+        /// </summary>
+        public void MarkManualDisconnect()
+        {
+            _isManualDisconnect = true;
+            
+            // 保存当前连接的地址和端口，用于下次连接时的默认值
+            if (!string.IsNullOrEmpty(CurrentTcpHost))
+            {
+                // 保存到设置中，用于下次连接
+                Settings.Instance["LastTCP_Host"] = CurrentTcpHost;
+                Settings.Instance["LastTCP_Port"] = _tcpPort;
+                log.Info($"Saved last TCP connection: {CurrentTcpHost}:{_tcpPort}");
+            }
+            
+            // 注意：不清空CurrentTcpHost，保持上次连接的地址用于下次连接
+            
+            log.Info("Marked as manual disconnect");
+        }
+
+        /// <summary>
+        /// 标记为自动连接
+        /// </summary>
+        public void MarkAutoConnect()
+        {
+            _isManualDisconnect = false;
+            _isAutoConnecting = true;
+        }
+
+        /// <summary>
+        /// 标记为手动连接
+        /// </summary>
+        public void MarkManualConnect()
+        {
+            _isManualDisconnect = false;
+            _isAutoConnecting = false;
+        }
+
+        /// <summary>
+        /// 检查连接状态
+        /// </summary>
+        private void CheckConnectionStatus(object state)
+        {
+            if (!_isEnabled || _isManualDisconnect || _isReconnecting)
+                return;
+
+            try
+            {
+                // 检查当前连接状态
+                if (MainV2.comPort?.BaseStream?.IsOpen == true)
+                {
+                    // 更新最后有效数据包时间
+                    if (MainV2.comPort.MAV?.lastvalidpacket != null)
+                    {
+                        _lastValidPacket = MainV2.comPort.MAV.lastvalidpacket;
+                    }
+
+                    // 检查是否长时间没有收到数据包（超过5秒认为连接断开）
+                    if ((DateTime.UtcNow - _lastValidPacket).TotalSeconds > 2)
+                    {
+                        log.Warn("Connection appears to be lost - no valid packets received");
+                        AttemptReconnect();
+                    }
+                }
+                else
+                {
+                    // 连接已断开，尝试重连
+                    if (!string.IsNullOrEmpty(CurrentTcpHost))
+                    {
+                        log.Warn("Connection is closed, attempting reconnect");
+                        AttemptReconnect();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error in connection status check", ex);
+            }
+        }
+
+        /// <summary>
+        /// 尝试重新连接
+        /// </summary>
+        private void AttemptReconnect()
+        {
+            if (_isReconnecting)
+                return;
+
+            _isReconnecting = true;
+
+            try
+            {
+                // 确定要尝试的下一个地址
+                string nextHost = GetNextTcpHost();
+                
+                if (!string.IsNullOrEmpty(nextHost))
+                {
+                    log.Info($"Attempting connection to: {nextHost}:{_tcpPort}");
+                    CurrentTcpHost = nextHost;
+                    ConnectToTcp(nextHost, _tcpPort);
+                }
+                else
+                {
+                    log.Warn("No valid TCP host available for reconnection");
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error during reconnect attempt", ex);
+            }
+            finally
+            {
+                _isReconnecting = false;
+            }
+        }
+
+        /// <summary>
+        /// 获取下一个要尝试的TCP地址
+        /// </summary>
+        private string GetNextTcpHost()
+        {
+            // 如果当前没有设置当前主机，优先尝试主地址
+            if (string.IsNullOrEmpty(CurrentTcpHost))
+            {
+                if (!string.IsNullOrEmpty(_primaryTcpHost))
+                    return _primaryTcpHost;
+                else if (!string.IsNullOrEmpty(_backupTcpHost))
+                    return _backupTcpHost;
+            }
+            
+            // 如果当前使用主地址，尝试备用地址
+            if (CurrentTcpHost == _primaryTcpHost && !string.IsNullOrEmpty(_backupTcpHost))
+            {
+                return _backupTcpHost;
+            }
+            
+            // 如果当前使用备用地址，尝试主地址
+            if (CurrentTcpHost == _backupTcpHost && !string.IsNullOrEmpty(_primaryTcpHost))
+            {
+                return _primaryTcpHost;
+            }
+            
+            // 如果当前地址不在配置中，尝试主地址
+            if (!string.IsNullOrEmpty(_primaryTcpHost))
+            {
+                return _primaryTcpHost;
+            }
+            
+            // 最后尝试备用地址
+            return _backupTcpHost;
+        }
+
+        /// <summary>
+        /// 连接到指定的TCP地址
+        /// </summary>
+        private void ConnectToTcp(string host, string port)
+        {
+            try
+            {
+                // 断开当前连接
+                if (MainV2.comPort?.BaseStream?.IsOpen == true)
+                {
+                    MainV2.comPort.Close();
+                }
+
+                // 创建新的TCP连接
+                var tcpSerial = new MissionPlanner.Comms.TcpSerial();
+                tcpSerial.Host = host;
+                tcpSerial.Port = port;
+                tcpSerial.autoReconnect = false; // 我们手动管理重连
+
+                // 设置到主连接端口
+                MainV2.comPort.BaseStream = tcpSerial;
+                
+                // 直接调用TcpSerial的Open方法，避免重复弹窗
+                // 由于我们已经设置了Host和Port，不会弹出输入框
+                tcpSerial.Open();
+
+                // 更新当前TCP地址
+                CurrentTcpHost = host;
+                
+                // 确保连接状态正确更新
+                MainV2.instance.BeginInvoke((Action)delegate
+                {
+                    // 通过公共方法更新连接状态
+                    MainV2.instance.UpdateConnectionStatus(true);
+                });
+                
+                log.Info($"Successfully connected to {host}:{port}");
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Failed to connect to {host}:{port}", ex);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            _connectionMonitorTimer?.Dispose();
+            _connectionMonitorTimer = null;
         }
     }
 }
