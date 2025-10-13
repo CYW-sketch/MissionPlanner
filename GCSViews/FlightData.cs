@@ -7548,7 +7548,7 @@ namespace MissionPlanner.GCSViews
 			{
 				return false;
 			}
-			if (!ValidateNumber(txtRemoteAlt, 0, 1000, "目的地高度"))
+			if (!ValidateNumber(txtRemoteAlt, 0, 10000, "目的地高度"))
 			{
 				return false;
 			}
