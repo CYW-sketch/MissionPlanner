@@ -39,6 +39,8 @@ using MissionPlanner.Joystick;
 using System.Net;
 using Newtonsoft.Json;
 using MissionPlanner;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using Flurl.Util;
 using Org.BouncyCastle.Bcpg;
 using log4net.Repository.Hierarchy;
@@ -1393,14 +1395,24 @@ namespace MissionPlanner
             {
                 // 获取本机IP地址作为默认主地址
                 string localIP = GetLocalIPAddress();
-                
+                //主地址
                 string primaryHost = Settings.Instance.GetString("AutoConnect_PrimaryHost", localIP);
+                //备地址
                 string backupHost = Settings.Instance.GetString("AutoConnect_BackupHost", "192.168.4.13");
-                string port = Settings.Instance.GetString("AutoConnect_Port", "5760");
+                // 端口向后兼容：如果没有分别配置，则使用 AutoConnect_Port
+                string defaultPort = Settings.Instance.GetString("AutoConnect_Port", "5760");
+                string primaryPort = Settings.Instance.GetString("AutoConnect_PrimaryPort", defaultPort);
+                string backupPort = Settings.Instance.GetString("AutoConnect_BackupPort", defaultPort);
+                // 质量门限（0.0-1.0），窗口秒数和最小切换间隔秒数
+                double qualityThreshold = Settings.Instance.GetDouble("AutoConnect_QualityThreshold", 0.7);
+                int qualityWindowSec = Settings.Instance.GetInt32("AutoConnect_QualityWindowSec", 3);
+                int minSwitchIntervalSec = Settings.Instance.GetInt32("AutoConnect_MinSwitchIntervalSec", 10);
                 bool enabled = Settings.Instance.GetBoolean("AutoConnect_Enabled", true); // 默认启用
 
                 // 设置TCP地址配置
-                AutoConnectManager.SetTcpAddresses(primaryHost, backupHost, port);
+                AutoConnectManager.SetTcpAddresses(primaryHost, primaryPort, backupHost, backupPort);
+                AutoConnectManager.SetQualityPolicy(qualityThreshold, qualityWindowSec, minSwitchIntervalSec);
+                AutoConnectManager.EnableDualListen = true; // 默认启用双端监听
                 
                 // 加载上次连接的TCP地址作为当前地址
                 string lastHost = Settings.Instance.GetString("LastTCP_Host", "");
@@ -1415,7 +1427,7 @@ namespace MissionPlanner
                     AutoConnectManager.EnableAutoConnect();
                 }
 
-                log.Info($"AutoConnect configured - Primary: {primaryHost}, Backup: {backupHost}, Port: {port}, Enabled: {enabled}");
+                log.Info($"AutoConnect configured - Primary: {primaryHost}:{primaryPort}, Backup: {backupHost}:{backupPort}, Threshold: {qualityThreshold:P0}, Window: {qualityWindowSec}s, MinSwitch: {minSwitchIntervalSec}s, DualListen: true, Enabled: {enabled}");
             }
             catch (Exception ex)
             {
@@ -1516,7 +1528,7 @@ namespace MissionPlanner
                     {
                         Location = new Point(80, 48),
                         Size = new Size(150, 20),
-                        Text = !string.IsNullOrEmpty(_lastManualPort) ? _lastManualPort : AutoConnectManager.TcpPort
+                        Text = !string.IsNullOrEmpty(_lastManualPort) ? _lastManualPort : AutoConnectManager.GetPortForHost(AutoConnectManager.PrimaryTcpHost)
                     };
 
                     // 确定按钮
@@ -1595,7 +1607,11 @@ namespace MissionPlanner
                 // 获取当前配置
                 string primaryHost = AutoConnectManager.PrimaryTcpHost;
                 string backupHost = AutoConnectManager.BackupTcpHost;
-                string port = AutoConnectManager.TcpPort;
+                string primaryPort = AutoConnectManager.GetPortForHost(primaryHost);
+                string backupPort = AutoConnectManager.GetPortForHost(backupHost);
+                double qualityThreshold = Settings.Instance.GetDouble("AutoConnect_QualityThreshold", 0.7);
+                int qualityWindowSec = Settings.Instance.GetInt32("AutoConnect_QualityWindowSec", 3);
+                int minSwitchIntervalSec = Settings.Instance.GetInt32("AutoConnect_MinSwitchIntervalSec", 10);
 
                 // 创建配置对话框
                 using (var dialog = new Form())
@@ -1618,32 +1634,57 @@ namespace MissionPlanner
                         Size = new Size(200, 20)
                     };
 
-                    // 备用TCP地址
-                    var lblBackup = new Label
-                    {
-                        Text = "备用TCP地址:",
-                        Location = new Point(20, 50),
-                        Size = new Size(80, 20)
-                    };
-                    var txtBackup = new TextBox
-                    {
-                        Text = backupHost,
-                        Location = new Point(100, 48),
-                        Size = new Size(200, 20)
-                    };
-
                     // 端口
                     var lblPort = new Label
                     {
-                        Text = "端口:",
+                        Text = "主端口:",
                         Location = new Point(20, 80),
                         Size = new Size(80, 20)
                     };
-                    var txtPort = new TextBox
+                    var txtPrimaryPort = new TextBox
                     {
-                        Text = port,
+                        Text = primaryPort,
                         Location = new Point(100, 78),
                         Size = new Size(100, 20)
+                    };
+
+                    var lblQ = new Label
+                    {
+                        Text = "质量阈值(0-1):",
+                        Location = new Point(20, 110),
+                        Size = new Size(100, 20)
+                    };
+                    var txtQ = new TextBox
+                    {
+                        Text = qualityThreshold.ToString("0.00"),
+                        Location = new Point(120, 108),
+                        Size = new Size(60, 20)
+                    };
+
+                    var lblWin = new Label
+                    {
+                        Text = "窗口(s):",
+                        Location = new Point(190, 110),
+                        Size = new Size(60, 20)
+                    };
+                    var txtWin = new TextBox
+                    {
+                        Text = qualityWindowSec.ToString(),
+                        Location = new Point(250, 108),
+                        Size = new Size(40, 20)
+                    };
+
+                    var lblMin = new Label
+                    {
+                        Text = "最小切换(s):",
+                        Location = new Point(300, 110),
+                        Size = new Size(80, 20)
+                    };
+                    var txtMin = new TextBox
+                    {
+                        Text = minSwitchIntervalSec.ToString(),
+                        Location = new Point(380, 108),
+                        Size = new Size(50, 20)
                     };
 
                     // 启用自动连接
@@ -1654,6 +1695,7 @@ namespace MissionPlanner
                         Size = new Size(150, 20),
                         Checked = AutoConnectManager.IsEnabled
                     };
+
 
                     // 确定按钮
                     var btnOK = new Button
@@ -1673,13 +1715,19 @@ namespace MissionPlanner
                         DialogResult = DialogResult.Cancel
                     };
 
-                    dialog.Controls.AddRange(new Control[] { lblPrimary, txtPrimary, lblBackup, txtBackup, lblPort, txtPort, chkEnabled, btnOK, btnCancel });
+                    dialog.Controls.AddRange(new Control[] { lblPrimary, txtPrimary, lblPort, txtPrimaryPort, lblQ, txtQ, lblWin, txtWin, lblMin, txtMin, chkEnabled, btnOK, btnCancel });
 
                     if (dialog.ShowDialog() == DialogResult.OK)
                     {
                         // 保存配置
-                        AutoConnectManager.SetTcpAddresses(txtPrimary.Text, txtBackup.Text, txtPort.Text);
+                        AutoConnectManager.SetTcpAddresses(txtPrimary.Text, txtPrimaryPort.Text, backupHost, backupPort);
+                        if (double.TryParse(txtQ.Text, out var q) && int.TryParse(txtWin.Text, out var w) && int.TryParse(txtMin.Text, out var m))
+                        {
+                            AutoConnectManager.SetQualityPolicy(Math.Max(0.0, Math.Min(1.0, q)), Math.Max(1, w), Math.Max(1, m));
+                        }
                         
+                        AutoConnectManager.EnableDualListen = true;
+
                         if (chkEnabled.Checked)
                         {
                             AutoConnectManager.EnableAutoConnect();
@@ -1691,8 +1739,12 @@ namespace MissionPlanner
 
                         // 保存到设置
                         Settings.Instance["AutoConnect_PrimaryHost"] = txtPrimary.Text;
-                        Settings.Instance["AutoConnect_BackupHost"] = txtBackup.Text;
-                        Settings.Instance["AutoConnect_Port"] = txtPort.Text;
+                        Settings.Instance["AutoConnect_BackupHost"] = backupHost;
+                        Settings.Instance["AutoConnect_PrimaryPort"] = txtPrimaryPort.Text;
+                        Settings.Instance["AutoConnect_BackupPort"] = backupPort;
+                        Settings.Instance["AutoConnect_QualityThreshold"] = (txtQ.Text);
+                        Settings.Instance["AutoConnect_QualityWindowSec"] = (txtWin.Text);
+                        Settings.Instance["AutoConnect_MinSwitchIntervalSec"] = (txtMin.Text);
                         Settings.Instance["AutoConnect_Enabled"] = chkEnabled.Checked.ToString();
 
                         CustomMessageBox.Show("自动连接配置已保存", "配置成功");
@@ -1809,7 +1861,7 @@ namespace MissionPlanner
                     
                     // 设置默认端口，避免弹出端口输入框
                     // 只让用户输入地址，端口使用默认值
-                    tcpSerial.Port = AutoConnectManager.TcpPort;
+                    tcpSerial.Port = AutoConnectManager.GetPortForHost(AutoConnectManager.PrimaryTcpHost);
                     
                     // 根据连接类型设置标志
                     if (AutoConnectManager.IsAutoConnecting)
@@ -1822,7 +1874,23 @@ namespace MissionPlanner
                     }
                     break;
                 case "UDP":
-                    comPort.BaseStream = new UdpSerial();
+                    var udpBase = new UdpSerial();
+                    // 端口选择弹窗（14551/14552），选择后抑制内部再次弹窗
+                    try
+                    {
+                        var sel = SelectUdpPort();
+                        if (string.IsNullOrEmpty(sel))
+                            return; // 取消
+                        udpBase.Port = sel;
+                        udpBase.SuppressPrompts = true;
+                    }
+                    catch
+                    {
+                        // 回退到默认
+                        udpBase.Port = "14551";
+                        udpBase.SuppressPrompts = false;
+                    }
+                    comPort.BaseStream = udpBase;
                     _connectionControl.CMB_serialport.Text = "UDP";
                     break;
                 case "WS":
@@ -2253,8 +2321,39 @@ namespace MissionPlanner
                 // 检查是否是手动连接（非自动连接）
                 if (!AutoConnectManager.IsAutoConnecting)
                 {
-                    // 手动连接，显示地址和端口输入对话框
-                    ShowManualConnectDialog();
+                    // 手动连接：根据端口类型分别弹窗
+                    var sel = _connectionControl.CMB_serialport.Text;
+                    if (string.Equals(sel, "UDP", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var udpBase = new UdpSerial();
+                        try
+                        {
+                            var chosen = SelectUdpPort();
+                            if (string.IsNullOrEmpty(chosen))
+                                return; // 用户取消
+                            udpBase.Port = chosen; // 14551/14552
+                            udpBase.SuppressPrompts = true; // 避免再次弹窗
+                        }
+                        catch
+                        {
+                            udpBase.Port = "14551";
+                            udpBase.SuppressPrompts = false;
+                        }
+
+                        comPort.BaseStream = udpBase;
+                        _connectionControl.CMB_serialport.Text = "UDP";
+
+                        // 标记为手动连接
+                        AutoConnectManager.MarkManualConnect();
+
+                        // 直接连接
+                        doConnect(comPort, "preset", "0");
+                    }
+                    else
+                    {
+                        // TCP 等其他类型：使用地址+端口手动输入对话框
+                        ShowManualConnectDialog();
+                    }
                 }
                 else
                 {
@@ -5187,6 +5286,41 @@ namespace MissionPlanner
                 }
             }
         }
+
+        private string SelectUdpPort()
+        {
+            try
+            {
+                using (var dlg = new Form())
+                {
+                    dlg.Text = "选择UDP端口";
+                    dlg.StartPosition = FormStartPosition.CenterParent;
+                    dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    dlg.MaximizeBox = false;
+                    dlg.MinimizeBox = false;
+                    dlg.Size = new Size(260, 150);
+
+                    var label = new Label { Text = "选择监听端口:", Location = new Point(15, 20), Size = new Size(100, 20) };
+                    var combo = new ComboBox { Location = new Point(120, 18), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList };
+                    combo.Items.Add("14551");
+                    combo.Items.Add("14552");
+                    combo.SelectedIndex = 0;
+
+                    var ok = new Button { Text = "确定", Location = new Point(60, 60), Size = new Size(60, 25), DialogResult = DialogResult.OK };
+                    var cancel = new Button { Text = "取消", Location = new Point(140, 60), Size = new Size(60, 25), DialogResult = DialogResult.Cancel };
+
+                    dlg.Controls.AddRange(new Control[] { label, combo, ok, cancel });
+                    dlg.AcceptButton = ok;
+                    dlg.CancelButton = cancel;
+
+                    if (dlg.ShowDialog() == DialogResult.OK)
+                        return combo.SelectedItem?.ToString();
+
+                    return null;
+                }
+            }
+            catch { return null; }
+        }
     }
 
     /// <summary>
@@ -5200,12 +5334,24 @@ namespace MissionPlanner
         private bool _isManualDisconnect = false;
         private bool _isAutoConnecting = false;
         private string _primaryTcpHost = "";
+        private string _primaryTcpPort = "5760";
         private string _backupTcpHost = "";
-        private string _tcpPort = "5760";
+        private string _backupTcpPort = "5760";
         private DateTime _lastConnectionCheck = DateTime.Now;
         private DateTime _lastValidPacket = DateTime.Now;
         private System.Threading.Timer _connectionMonitorTimer;
         private bool _isReconnecting = false;
+        private double _qualityThreshold = 0.7; // 0..1
+        private int _qualityWindowSec = 3;
+        private int _minSwitchIntervalSec = 10;
+        private DateTime _lastSwitchUtc = DateTime.MinValue;
+        private IDisposable _qualitySub;
+        private MAVLinkInterface _passiveMav;
+        private MissionPlanner.Comms.TcpSerial _passiveTcp;
+        public bool EnableDualListen { get; set; } = false;
+        private bool _manualConnectedOnce = false;
+        private const string _udpPortA = "14451";
+        private const string _udpPortB = "14452";
 
         /// <summary>
         /// 是否启用自动连接
@@ -5243,13 +5389,12 @@ namespace MissionPlanner
             set { _backupTcpHost = value; }
         }
 
-        /// <summary>
-        /// TCP端口
-        /// </summary>
-        public string TcpPort
+        public string GetPortForHost(string host)
         {
-            get { return _tcpPort; }
-            set { _tcpPort = value; }
+            if (string.IsNullOrEmpty(host)) return _primaryTcpPort;
+            if (host == _primaryTcpHost) return _primaryTcpPort;
+            if (host == _backupTcpHost) return _backupTcpPort;
+            return _primaryTcpPort;
         }
 
         /// <summary>
@@ -5266,24 +5411,115 @@ namespace MissionPlanner
             {
                 _connectionMonitorTimer.Dispose();
             }
-
+            //连接状态检查，参数1：状态检查函数，参数2：延迟时间，参数3：检查间隔
             _connectionMonitorTimer = new System.Threading.Timer(CheckConnectionStatus, null, 1000, 1000);
+
+            // 订阅质量监控（仅活跃链路）。被动监听仅在手动连接完成后按需启动
+            try
+            {
+                _qualitySub?.Dispose();
+                var mav = MainV2.comPort;
+                if (mav != null)
+                {
+                    _qualitySub = System.Reactive.Linq.Observable
+                        .CombineLatest(
+                            mav.WhenPacketReceived.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                            mav.WhenPacketLost.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                            (rx, lost) => new { rx, lost })
+                        .Subscribe(v =>
+                        {
+                            double denom = v.rx + v.lost;
+                            double quality = denom <= 0 ? 0 : v.rx / denom;
+                            EvaluateQualityAndMaybeSwitch(quality);
+                        });
+                }
+
+                // 注意：初始化时不立即启动被动监听，避免在手动连接完成前占用资源
+            }
+            catch { }
             log.Info("AutoConnectManager initialized");
+        }
+
+        private void SetupPassiveListener()
+        {
+            try
+            {
+                // 清理旧的
+                try { _passiveTcp?.Close(); } catch {}
+                _passiveMav = null;
+                _passiveTcp = null;
+
+                if (!EnableDualListen || !_manualConnectedOnce)
+                    return;
+
+                // 根据当前活跃链接类型（TCP/UDP）选择被动监听的方式
+                if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial)
+                {
+                    string target = GetAlternateHost();
+                    if (string.IsNullOrEmpty(target)) return;
+                    var port = GetPortForHost(target);
+
+                    _passiveTcp = new MissionPlanner.Comms.TcpSerial();
+                    _passiveTcp.Host = target;
+                    _passiveTcp.Port = port;
+                    _passiveTcp.autoReconnect = true;
+
+                    _passiveMav = new MAVLinkInterface { BaseStream = _passiveTcp };
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try { _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false); } catch { }
+                    });
+                }
+                else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
+                {
+                    // UDP 双监听：在 14451 和 14452 两个端口间选择"另一端"作为被动监听端口
+                    var activeUdpPort = (MainV2.comPort.BaseStream as dynamic).Port as string;
+                    var passivePort = activeUdpPort == _udpPortA ? _udpPortB : _udpPortA;
+
+                    var udp = new MissionPlanner.Comms.UdpSerial();
+                    udp.Port = passivePort;
+                    udp.SuppressPrompts = true;
+
+                    _passiveMav = new MAVLinkInterface { BaseStream = udp };
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try { udp.Open(); _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false); } catch { }
+                    });
+                }
+                else
+                {
+                    // 其他类型不做被动监听
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Warn("Passive listener failed to start", ex);
+            }
         }
 
         /// <summary>
         /// 设置TCP地址配置
         /// </summary>
         /// <param name="primaryHost">主TCP地址</param>
+        /// <param name="primaryPort">主端口</param>
         /// <param name="backupHost">备用TCP地址</param>
-        /// <param name="port">端口</param>
-        public void SetTcpAddresses(string primaryHost, string backupHost, string port)
+        /// <param name="backupPort">备端口</param>
+        public void SetTcpAddresses(string primaryHost, string primaryPort, string backupHost, string backupPort)
         {
             _primaryTcpHost = primaryHost;
+            _primaryTcpPort = string.IsNullOrWhiteSpace(primaryPort) ? _primaryTcpPort : primaryPort;
             _backupTcpHost = backupHost;
-            _tcpPort = port;
+            _backupTcpPort = string.IsNullOrWhiteSpace(backupPort) ? _backupTcpPort : backupPort;
             CurrentTcpHost = primaryHost;
-            log.Info($"AutoConnectManager configured - Primary: {primaryHost}, Backup: {backupHost}, Port: {port}");
+            log.Info($"AutoConnectManager configured - Primary: {primaryHost}:{_primaryTcpPort}, Backup: {backupHost}:{_backupTcpPort}");
+        }
+
+        public void SetQualityPolicy(double threshold, int windowSec, int minSwitchIntervalSec)
+        {
+            _qualityThreshold = Math.Max(0.0, Math.Min(1.0, threshold));
+            _qualityWindowSec = Math.Max(1, windowSec);
+            _minSwitchIntervalSec = Math.Max(1, minSwitchIntervalSec);
         }
 
         /// <summary>
@@ -5317,13 +5553,18 @@ namespace MissionPlanner
             {
                 // 保存到设置中，用于下次连接
                 Settings.Instance["LastTCP_Host"] = CurrentTcpHost;
-                Settings.Instance["LastTCP_Port"] = _tcpPort;
-                log.Info($"Saved last TCP connection: {CurrentTcpHost}:{_tcpPort}");
+                Settings.Instance["LastTCP_Port"] = GetPortForHost(CurrentTcpHost);
+                log.Info($"Saved last TCP connection: {CurrentTcpHost}:{GetPortForHost(CurrentTcpHost)}");
             }
             
             // 注意：不清空CurrentTcpHost，保持上次连接的地址用于下次连接
             
             log.Info("Marked as manual disconnect");
+
+            // 关闭被动监听以释放资源
+            try { _passiveTcp?.Close(); } catch {}
+            _passiveMav = null;
+            _passiveTcp = null;
         }
 
         /// <summary>
@@ -5342,6 +5583,7 @@ namespace MissionPlanner
         {
             _isManualDisconnect = false;
             _isAutoConnecting = false;
+            _manualConnectedOnce = true;
         }
 
         /// <summary>
@@ -5403,9 +5645,13 @@ namespace MissionPlanner
                 
                 if (!string.IsNullOrEmpty(nextHost))
                 {
-                    log.Info($"Attempting connection to: {nextHost}:{_tcpPort}");
+                    string nextPort = GetPortForHost(nextHost);
+                    log.Info($"Attempting connection to: {nextHost}:{nextPort}");
                     CurrentTcpHost = nextHost;
-                    ConnectToTcp(nextHost, _tcpPort);
+                    ConnectToTcp(nextHost, nextPort);
+                    // 切换后（且已手动连接过）更新被动监听到另一端
+                    if (_manualConnectedOnce)
+                        SetupPassiveListener();
                 }
                 else
                 {
@@ -5486,6 +5732,7 @@ namespace MissionPlanner
 
                 // 更新当前TCP地址
                 CurrentTcpHost = host;
+                _lastSwitchUtc = DateTime.UtcNow;
                 
                 // 确保连接状态正确更新
                 MainV2.instance.BeginInvoke((Action)delegate
@@ -5501,6 +5748,75 @@ namespace MissionPlanner
                 log.Error($"Failed to connect to {host}:{port}", ex);
                 throw;
             }
+        }
+
+        private void EvaluateQualityAndMaybeSwitch(double quality)
+        {
+            if (!_isEnabled || _isManualDisconnect || _isReconnecting)
+                return;
+
+            if (MainV2.comPort?.BaseStream?.IsOpen != true)
+                return;
+
+            try
+            {
+                // 如果启用双监听，并且备用链路质量更好，则主动切换
+                if (EnableDualListen && _passiveMav != null)
+                {
+                    // 计算被动端窗口质量
+                    // 这里简单用最近窗口的 rx/(rx+lost) 估计；如需更精细可引入单独的缓冲
+                    // 如果无法取得数据，视为 0
+                    int rx = 0, lost = 0;
+                    try
+                    {
+                        // 无直接计数缓存，这里不读；由前面的窗口触发逻辑驱动
+                    }
+                    catch { }
+                    double passiveQuality = 0; // 留作扩展：如需从 _passiveMav 暴露统计流
+
+                    // 若被动端质量显著高于阈值且当前端低于阈值，则切换
+                    if (quality < _qualityThreshold && passiveQuality >= _qualityThreshold)
+                    {
+                        if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds >= _minSwitchIntervalSec)
+                        {
+                            string target = GetAlternateHost();
+                            if (!string.IsNullOrEmpty(target))
+                            {
+                                string port = GetPortForHost(target);
+                                log.Warn($"Active quality {quality:0.00} < thr {_qualityThreshold:0.00} and passive >= thr, switching to {target}:{port}");
+                                AttemptReconnect();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if (quality < _qualityThreshold)
+                {
+                    if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds < _minSwitchIntervalSec)
+                        return;
+
+                    string target = GetAlternateHost();
+                    if (!string.IsNullOrEmpty(target))
+                    {
+                        string port = GetPortForHost(target);
+                        log.Warn($"Link quality {quality:0.00} < threshold {_qualityThreshold:0.00}, switching to {target}:{port}");
+                        AttemptReconnect();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error evaluating link quality", ex);
+            }
+        }
+
+        private string GetAlternateHost()
+        {
+            if (CurrentTcpHost == _primaryTcpHost && !string.IsNullOrEmpty(_backupTcpHost)) return _backupTcpHost;
+            if (CurrentTcpHost == _backupTcpHost && !string.IsNullOrEmpty(_primaryTcpHost)) return _primaryTcpHost;
+            if (!string.IsNullOrEmpty(_backupTcpHost)) return _backupTcpHost;
+            return _primaryTcpHost;
         }
 
         /// <summary>

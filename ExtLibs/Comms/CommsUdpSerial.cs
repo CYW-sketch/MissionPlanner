@@ -53,6 +53,7 @@ namespace MissionPlanner.Comms
         }
 
         public string Port { get; set; }
+        public bool SuppressPrompts { get; set; }
 
         public int WriteBufferSize { get; set; }
         public int WriteTimeout { get; set; }
@@ -109,13 +110,14 @@ namespace MissionPlanner.Comms
 
             var dest = Port;
 
-            dest = OnSettings("UDP_port" + ConfigRef, dest);
-
-            if (inputboxreturn.Cancel == OnInputBoxShow("Listern Port",
-                    "Enter Local port (ensure remote end is already sending)", ref dest)) return;
-            Port = dest;
-
-            OnSettings("UDP_port" + ConfigRef, Port, true);
+            if (!SuppressPrompts)
+            {
+                dest = OnSettings("UDP_port" + ConfigRef, dest);
+                if (inputboxreturn.Cancel == OnInputBoxShow("Listern Port",
+                        "Enter Local port (ensure remote end is already sending)", ref dest)) return;
+                Port = dest;
+                OnSettings("UDP_port" + ConfigRef, Port, true);
+            }
 
             //######################################
 
