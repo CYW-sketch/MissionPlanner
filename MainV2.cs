@@ -5304,7 +5304,8 @@ namespace MissionPlanner
                     var combo = new ComboBox { Location = new Point(120, 18), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList };
                     combo.Items.Add("14551");
                     combo.Items.Add("14552");
-                    combo.SelectedIndex = 0;
+                    var last = Settings.Instance.GetString("LastUDP_Port", "14551");
+                    combo.SelectedItem = (object) last ?? "14551";
 
                     var ok = new Button { Text = "确定", Location = new Point(60, 60), Size = new Size(60, 25), DialogResult = DialogResult.OK };
                     var cancel = new Button { Text = "取消", Location = new Point(140, 60), Size = new Size(60, 25), DialogResult = DialogResult.Cancel };
@@ -5314,7 +5315,12 @@ namespace MissionPlanner
                     dlg.CancelButton = cancel;
 
                     if (dlg.ShowDialog() == DialogResult.OK)
-                        return combo.SelectedItem?.ToString();
+                    {
+                        var chosen = combo.SelectedItem?.ToString();
+                        if (!string.IsNullOrEmpty(chosen))
+                            Settings.Instance["LastUDP_Port"] = chosen;
+                        return chosen;
+                    }
 
                     return null;
                 }
@@ -5472,7 +5478,7 @@ namespace MissionPlanner
                 }
                 else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                 {
-                    // UDP 双监听：在 14451 和 14452 两个端口间选择"另一端"作为被动监听端口
+                    // UDP 双监听：根据当前手动选择的本地监听端口（14551/14552），被动监听另一端
                     var activeUdpPort = (MainV2.comPort.BaseStream as dynamic).Port as string;
                     var passivePort = activeUdpPort == _udpPortA ? _udpPortB : _udpPortA;
 
