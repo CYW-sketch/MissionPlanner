@@ -3152,15 +3152,38 @@ namespace MissionPlanner.GCSViews
                     // For axes not involved in this press, force 1500 to avoid unintended climb/descend
                     ushort roll = (ushort)(dRoll != 0 ? _rcOverrideRollPwm : 1500);
                     ushort pitch = (ushort)(dPitch != 0 ? _rcOverridePitchPwm : 1500);
-                    ushort throttle = (ushort)(dThrottle != 0 ? _rcOverrideThrottlePwm : 1500);
+                    // Read actual throttle from vehicle and feed back if we are not changing throttle
+                    ushort currentThrottle = 1500;
+                    // try
+                    // {
+                    //     var csread = MainV2.comPort.MAV.cs;
+                    //     if (csread.ch3in > 0)
+                    //         currentThrottle = (ushort)Clamp1100_1900((int)csread.ch3in);
+                    // }
+                    // catch { }
+                    ushort throttle = (ushort)(dThrottle != 0 ? _rcOverrideThrottlePwm : currentThrottle);
                     ushort yaw = (ushort)(dYaw != 0 ? _rcOverrideYawPwm : 1500);
+
+                    // log.Info($"RC OVERRIDE (press): CH1={roll} CH2={pitch} CH3={throttle} CH4={yaw} CH5=1500 CH6=1500 CH7=1500 CH8=1500");
 
                     MainV2.comPort.SendRCOverride(sysid, compid,
                         roll,
                         pitch,
-                        throttle,
+                        65535,
                         yaw,
-                        1500, 1500, 1500, 1500);
+                        65535, 65535, 65535, 65535);
+
+                    // After a short delay, read back the vehicle's actual RC input values to log
+                    // System.Threading.Tasks.Task.Run(() =>
+                    // {
+                    //     try
+                    //     {
+                    //         System.Threading.Thread.Sleep(80);
+                    //         var csread = MainV2.comPort.MAV.cs;
+                    //         // log.Info($"RC INPUT (vehicle): CH1={csread.ch1in} CH2={csread.ch2in} CH3={csread.ch3in} CH4={csread.ch4in}");
+                    //     }
+                    //     catch { }
+                    // });
                 }
                 catch { }
             }
@@ -3177,11 +3200,31 @@ namespace MissionPlanner.GCSViews
                 {
                     try
                     {
+                        // log.Info("RC OVERRIDE (release): CH1=1500 CH2=1500 CH3=1500 CH4=1500 CH5=1500 CH6=1500 CH7=1500 CH8=1500 x3");
+                        // Read back current throttle and keep feeding it back (we don't control throttle)
+                        ushort currentThrottle = 1500;
+                        // try
+                        // {
+                        //     var csread0 = MainV2.comPort.MAV.cs;
+                        //     if (csread0.ch3in > 0)
+                        //         currentThrottle = (ushort)Clamp1100_1900((int)csread0.ch3in);
+                        // }
+                        // catch { }
+
                         for (int i = 0; i < 3; i++)
                         {
-                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500);
+                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 65535, 1500, 65535, 65535,65535, 65535);
                             System.Threading.Thread.Sleep(40);
                         }
+
+                        // Read back the vehicle RC input after recenter
+                        try
+                        {
+                            System.Threading.Thread.Sleep(60);
+                            var csread = MainV2.comPort.MAV.cs;
+                            // log.Info($"RC INPUT (vehicle after release): CH1={csread.ch1in} CH2={csread.ch2in} CH3={csread.ch3in} CH4={csread.ch4in}");
+                        }
+                        catch { }
                     }
                     catch { }
                 });
