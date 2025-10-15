@@ -261,6 +261,26 @@ namespace MissionPlanner.GCSViews
 
             instance = this;
 
+            // Attach DPad events for on-screen joysticks (RC override)
+            try
+            {
+                if (dpadLeft != null)
+                {
+                    // dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +100, 0);      // Throttle up (disabled)
+                    // dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -100, 0);    // Throttle down (disabled)
+                    dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -100);    // Yaw left
+                    dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +100);   // Yaw right
+                }
+                if (dpadRight != null)
+                {
+                    dpadRight.UpChanged += (s, a) => RcStep_Send(a, 0, -100, 0, 0);    // Pitch forward
+                    dpadRight.DownChanged += (s, a) => RcStep_Send(a, 0, +100, 0, 0);  // Pitch back
+                    dpadRight.LeftChanged += (s, a) => RcStep_Send(a, -100, 0, 0, 0);  // Roll left
+                    dpadRight.RightChanged += (s, a) => RcStep_Send(a, +100, 0, 0, 0); // Roll right
+                }
+            }
+            catch { }
+
 
             this.SubMainLeft.Panel1.ControlAdded += (sender, e) => ManageLeftPanelVisibility();
             this.SubMainLeft.Panel1.ControlRemoved += (sender, e) => ManageLeftPanelVisibility();
@@ -3103,6 +3123,73 @@ namespace MissionPlanner.GCSViews
         private void gMapControl1_Click(object sender, EventArgs e)
         {
         }
+
+        // RC override state per primary axes (Roll, Pitch, Throttle, Yaw)
+        private int _rcOverrideRollPwm = 1500;
+        private int _rcOverridePitchPwm = 1500;
+        private int _rcOverrideThrottlePwm = 1500;
+        private int _rcOverrideYawPwm = 1500;
+
+        private void RcStep_Send(bool active, int dRoll, int dPitch, int dThrottle, int dYaw)
+        {
+            if (!MainV2.comPort.BaseStream.IsOpen || !MainV2.comPort.MAV.cs.armed)
+                return;
+
+            var sysid = (byte)MainV2.comPort.sysidcurrent;
+            var compid = (byte)MainV2.comPort.compidcurrent;
+
+            if (active)
+            {
+                // Update only the axis being changed; others stay centered (1500)
+                if (dRoll != 0) _rcOverrideRollPwm = Clamp1100_1900(_rcOverrideRollPwm + dRoll);
+                if (dPitch != 0) _rcOverridePitchPwm = Clamp1100_1900(_rcOverridePitchPwm + dPitch);
+                if (dThrottle != 0) _rcOverrideThrottlePwm = Clamp1100_1900(_rcOverrideThrottlePwm + dThrottle);
+                if (dYaw != 0) _rcOverrideYawPwm = Clamp1100_1900(_rcOverrideYawPwm + dYaw);
+
+                // single send on press
+                try
+                {
+                    // For axes not involved in this press, force 1500 to avoid unintended climb/descend
+                    ushort roll = (ushort)(dRoll != 0 ? _rcOverrideRollPwm : 1500);
+                    ushort pitch = (ushort)(dPitch != 0 ? _rcOverridePitchPwm : 1500);
+                    ushort throttle = (ushort)(dThrottle != 0 ? _rcOverrideThrottlePwm : 1500);
+                    ushort yaw = (ushort)(dYaw != 0 ? _rcOverrideYawPwm : 1500);
+
+                    MainV2.comPort.SendRCOverride(sysid, compid,
+                        roll,
+                        pitch,
+                        throttle,
+                        yaw,
+                        1500, 1500, 1500, 1500);
+                }
+                catch { }
+            }
+            else
+            {
+                // on release, recenter only the axis that changed
+                if (dRoll != 0) _rcOverrideRollPwm = 1500;
+                if (dPitch != 0) _rcOverridePitchPwm = 1500;
+                if (dThrottle != 0) _rcOverrideThrottlePwm = 1500;
+                if (dYaw != 0) _rcOverrideYawPwm = 1500;
+
+                // send center 3 times to ensure reception
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500);
+                            System.Threading.Thread.Sleep(40);
+                        }
+                    }
+                    catch { }
+                });
+            }
+        }
+
+        private static int Clamp1100_1900(int v) => Math.Max(1100, Math.Min(1900, v));
+
 
         
 
