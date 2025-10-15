@@ -268,6 +268,8 @@ namespace MissionPlanner.GCSViews
             this.lbl_sats = new MissionPlanner.Controls.MyLabel();
             this.gMapControl1 = new MissionPlanner.Controls.myGMAP();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.dpadLeft = new MissionPlanner.Controls.RadialDPad();
+            this.dpadRight = new MissionPlanner.Controls.RadialDPad();
             this.coords1 = new MissionPlanner.Controls.Coords();
             this.CHK_autopan = new System.Windows.Forms.CheckBox();
             this.CB_tuning = new System.Windows.Forms.CheckBox();
@@ -2795,6 +2797,8 @@ namespace MissionPlanner.GCSViews
             this.splitContainer1.Panel2.Controls.Add(this.label4);
             this.splitContainer1.Panel2.Controls.Add(this.lbl_hdop);
             this.splitContainer1.Panel2.Controls.Add(this.lbl_sats);
+            this.splitContainer1.Panel2.Controls.Add(this.dpadLeft);
+            this.splitContainer1.Panel2.Controls.Add(this.dpadRight);
             this.splitContainer1.Panel2.Controls.Add(this.gMapControl1);
             this.splitContainer1.Panel2.Resize += new System.EventHandler(this.splitContainer1_Panel2_Resize);
             // 
@@ -3136,6 +3140,26 @@ namespace MissionPlanner.GCSViews
             this.panel1.Controls.Add(this.CHK_autopan);
             this.panel1.Controls.Add(this.CB_tuning);
             this.panel1.Name = "panel1";
+
+            // dpadLeft
+            // 
+            this.dpadLeft.Name = "dpadLeft";
+            this.dpadLeft.Size = new System.Drawing.Size(120, 120);
+            this.dpadLeft.TabIndex = 0;
+            this.dpadLeft.UpText = "上升";
+            this.dpadLeft.DownText = "下降";
+            this.dpadLeft.LeftText = "左转";
+            this.dpadLeft.RightText = "右转";
+
+            // dpadRight
+            // 
+            this.dpadRight.Name = "dpadRight";
+            this.dpadRight.Size = new System.Drawing.Size(120, 120);
+            this.dpadRight.TabIndex = 1;
+            this.dpadRight.UpText = "前进";
+            this.dpadRight.DownText = "后退";
+            this.dpadRight.LeftText = "左移";
+            this.dpadRight.RightText = "右移";
             // 
             // coords1
             // 
@@ -3407,6 +3431,8 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton btnDeleteWaypoint;
         private Controls.MyButton btnRemoteTakeoffLanding;
         // private Controls.MyButton btnSetAsRemoteTakeoffLanding; // 已注释掉，不再需要此功能
+        private MissionPlanner.Controls.RadialDPad dpadLeft;
+        private MissionPlanner.Controls.RadialDPad dpadRight;
         private Controls.MyButton btnStartDelivery;
         public System.Windows.Forms.TabPage tabPagemessages;
         private System.Windows.Forms.TextBox txt_messagebox;

@@ -261,6 +261,7 @@ namespace MissionPlanner.GCSViews
 
             instance = this;
 
+
             this.SubMainLeft.Panel1.ControlAdded += (sender, e) => ManageLeftPanelVisibility();
             this.SubMainLeft.Panel1.ControlRemoved += (sender, e) => ManageLeftPanelVisibility();
             this.tabControlactions.ControlAdded += (sender, e) => ManageLeftPanelVisibility();
@@ -3102,6 +3103,8 @@ namespace MissionPlanner.GCSViews
         private void gMapControl1_Click(object sender, EventArgs e)
         {
         }
+
+        
 
         private void gMapControl1_MouseDown(object sender, MouseEventArgs e)
         {
@@ -7093,6 +7096,27 @@ namespace MissionPlanner.GCSViews
                 gMapControl1.Size = new Size(width, height);
             }
 
+            // Position on-screen radial DPads at bottom-right over the map
+            if (splitContainer1.Panel2.Controls.Contains(dpadLeft) && splitContainer1.Panel2.Controls.Contains(dpadRight))
+            {
+                const int margin = 10;
+                var size = new Size(120, 120);
+                // Right joystick in the far bottom-right corner, keeping clear of zoom trackbar
+                var rightX = splitContainer1.Panel2.Width - size.Width - margin;
+                var rightY = splitContainer1.Panel2.Height - size.Height - margin;
+                dpadRight.Location = new Point(rightX, rightY);
+                dpadRight.Size = size;
+
+                // Left joystick to the left of the right joystick with a small gap
+                var leftX = rightX - size.Width - margin;
+                var leftY = rightY;
+                dpadLeft.Location = new Point(leftX, leftY);
+                dpadLeft.Size = size;
+
+                dpadLeft.BringToFront();
+                dpadRight.BringToFront();
+            }
+
             Invalidate();
         }
 
@@ -7700,6 +7724,20 @@ namespace MissionPlanner.GCSViews
 		{
 			try
 			{
+				// 停止并清空拖拽后延时写入/读取的定时器与队列，避免在清空后被延时回写残留单条航点
+				try
+				{
+					if (_wpWriteReadDebounceTimer != null)
+					{
+						_wpWriteReadDebounceTimer.Stop();
+					}
+					if (_pendingWpWriteIndices != null)
+					{
+						_pendingWpWriteIndices.Clear();
+					}
+				}
+				catch { }
+
 				// 检查是否有飞行计划器实例
 				if (MainV2.instance?.FlightPlanner == null)
 				{
