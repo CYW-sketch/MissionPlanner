@@ -1412,7 +1412,7 @@ namespace MissionPlanner
                 // 设置TCP地址配置
                 AutoConnectManager.SetTcpAddresses(primaryHost, primaryPort, backupHost, backupPort);
                 AutoConnectManager.SetQualityPolicy(qualityThreshold, qualityWindowSec, minSwitchIntervalSec);
-                AutoConnectManager.EnableDualListen = true; // 默认启用双端监听
+                // AutoConnectManager.EnableDualListen = true; // 暂时禁用：双端UDP监听功能
                 
                 // 加载上次连接的TCP地址作为当前地址
                 string lastHost = Settings.Instance.GetString("LastTCP_Host", "");
@@ -1427,7 +1427,7 @@ namespace MissionPlanner
                     AutoConnectManager.EnableAutoConnect();
                 }
 
-                log.Info($"AutoConnect configured - Primary: {primaryHost}:{primaryPort}, Backup: {backupHost}:{backupPort}, Threshold: {qualityThreshold:P0}, Window: {qualityWindowSec}s, MinSwitch: {minSwitchIntervalSec}s, DualListen: true, Enabled: {enabled}");
+                log.Info($"AutoConnect configured - Primary: {primaryHost}:{primaryPort}, Backup: {backupHost}:{backupPort}, Threshold: {qualityThreshold:P0}, Window: {qualityWindowSec}s, MinSwitch: {minSwitchIntervalSec}s, DualListen: false, Enabled: {enabled}");
             }
             catch (Exception ex)
             {
@@ -1726,7 +1726,7 @@ namespace MissionPlanner
                             AutoConnectManager.SetQualityPolicy(Math.Max(0.0, Math.Min(1.0, q)), Math.Max(1, w), Math.Max(1, m));
                         }
                         
-                        AutoConnectManager.EnableDualListen = true;
+                        // AutoConnectManager.EnableDualListen = true; // 暂时禁用：双端UDP监听功能
 
                         if (chkEnabled.Checked)
                         {
@@ -5300,23 +5300,24 @@ namespace MissionPlanner
                     dlg.MinimizeBox = false;
                     dlg.Size = new Size(260, 150);
 
-                    var label = new Label { Text = "选择监听端口:", Location = new Point(15, 20), Size = new Size(100, 20) };
-                    var combo = new ComboBox { Location = new Point(120, 18), Size = new Size(100, 22), DropDownStyle = ComboBoxStyle.DropDownList };
-                    combo.Items.Add("14551");
-                    combo.Items.Add("14552");
-                    var last = Settings.Instance.GetString("LastUDP_Port", "14551");
-                    combo.SelectedItem = (object) last ?? "14551";
+                    var label = new Label { Text = "输入监听端口:", Location = new Point(15, 20), Size = new Size(100, 20) };
+                    var tb = new TextBox { Location = new Point(120, 18), Size = new Size(100, 22) };
+                    var last = Settings.Instance.GetString("LastUDP_Port", "14550");
+                    tb.Text = string.IsNullOrEmpty(last) ? "14550" : last;
 
                     var ok = new Button { Text = "确定", Location = new Point(60, 60), Size = new Size(60, 25), DialogResult = DialogResult.OK };
                     var cancel = new Button { Text = "取消", Location = new Point(140, 60), Size = new Size(60, 25), DialogResult = DialogResult.Cancel };
 
-                    dlg.Controls.AddRange(new Control[] { label, combo, ok, cancel });
+                    dlg.Controls.AddRange(new Control[] { label, tb, ok, cancel });
                     dlg.AcceptButton = ok;
                     dlg.CancelButton = cancel;
 
                     if (dlg.ShowDialog() == DialogResult.OK)
                     {
-                        var chosen = combo.SelectedItem?.ToString();
+                        var chosen = tb.Text?.Trim();
+                        // 简单校验：必须为数字
+                        if (!string.IsNullOrEmpty(chosen) && !int.TryParse(chosen, out _))
+                            return null;
                         if (!string.IsNullOrEmpty(chosen))
                             Settings.Instance["LastUDP_Port"] = chosen;
                         return chosen;
@@ -5454,6 +5455,10 @@ namespace MissionPlanner
                 try { _passiveTcp?.Close(); } catch {}
                 _passiveMav = null;
                 _passiveTcp = null;
+
+                // 暂时禁用：双端监听（包括 UDP 双端口监听）功能
+                // 现阶段不需要该功能，直接返回。
+                return;
 
                 if (!EnableDualListen || !_manualConnectedOnce)
                     return;
