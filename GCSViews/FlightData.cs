@@ -7919,6 +7919,27 @@ namespace MissionPlanner.GCSViews
 						// 不抛出异常，继续执行
 					}
 				}
+				
+				// 额外调用飞行计划器的清除任务功能，确保完全清除所有航点（包括可能残留的Home航点）
+				// 注意：这里只清除界面上的航点，不写入到飞行器
+				try
+				{
+					// 再次清除FlightPlanner中的所有指令和航点，确保没有残留
+					MainV2.instance.FlightPlanner.Commands.Rows.Clear();
+					
+					// 更新地图显示
+					MainV2.instance.FlightPlanner.writeKML();
+					
+					// 更新坐标按钮文本
+					MainV2.instance.FlightPlanner.UpdateCoordinateButtonText();
+					
+					log.Info("额外清除任务完成，确保所有航点已被清除");
+				}
+				catch (Exception ex)
+				{
+					log.Warn($"额外清除任务时发生错误: {ex.Message}");
+					// 不抛出异常，继续执行
+				}
 			}
 			catch (Exception ex)
 			{
