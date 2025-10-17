@@ -270,6 +270,7 @@ namespace MissionPlanner.GCSViews
             this.panel1 = new System.Windows.Forms.Panel();
             this.dpadLeft = new MissionPlanner.Controls.RadialDPad();
             this.dpadRight = new MissionPlanner.Controls.RadialDPad();
+            this.cmbRcStep = new System.Windows.Forms.ComboBox();
             this.coords1 = new MissionPlanner.Controls.Coords();
             this.CHK_autopan = new System.Windows.Forms.CheckBox();
             this.CB_tuning = new System.Windows.Forms.CheckBox();
@@ -2799,6 +2800,7 @@ namespace MissionPlanner.GCSViews
             this.splitContainer1.Panel2.Controls.Add(this.lbl_sats);
             this.splitContainer1.Panel2.Controls.Add(this.dpadLeft);
             this.splitContainer1.Panel2.Controls.Add(this.dpadRight);
+            this.splitContainer1.Panel2.Controls.Add(this.cmbRcStep);
             this.splitContainer1.Panel2.Controls.Add(this.gMapControl1);
             this.splitContainer1.Panel2.Resize += new System.EventHandler(this.splitContainer1_Panel2_Resize);
             // 
@@ -3160,6 +3162,12 @@ namespace MissionPlanner.GCSViews
             this.dpadRight.DownText = "后退";
             this.dpadRight.LeftText = "左移";
             this.dpadRight.RightText = "右移";
+
+            // cmbRcStep
+            // 
+            this.cmbRcStep.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbRcStep.Name = "cmbRcStep";
+            this.cmbRcStep.Size = new System.Drawing.Size(72, 23);
             // 
             // coords1
             // 
@@ -3433,6 +3441,7 @@ namespace MissionPlanner.GCSViews
         // private Controls.MyButton btnSetAsRemoteTakeoffLanding; // 已注释掉，不再需要此功能
         private MissionPlanner.Controls.RadialDPad dpadLeft;
         private MissionPlanner.Controls.RadialDPad dpadRight;
+        private System.Windows.Forms.ComboBox cmbRcStep;
         private Controls.MyButton btnStartDelivery;
         public System.Windows.Forms.TabPage tabPagemessages;
         private System.Windows.Forms.TextBox txt_messagebox;

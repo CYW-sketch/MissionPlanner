@@ -264,19 +264,28 @@ namespace MissionPlanner.GCSViews
             // Attach DPad events for on-screen joysticks (RC override)
             try
             {
+                // Populate RC step size selector
+                if (cmbRcStep != null)
+                {
+                    cmbRcStep.Items.Clear();
+                    cmbRcStep.Items.AddRange(new object[] { "15%", "25%", "30%" });
+                    cmbRcStep.SelectedIndex = 1; // default 25%
+                    cmbRcStep.SelectedIndexChanged += (s, e2) => UpdateRcStepFromUI();
+                }
+
                 if (dpadLeft != null)
                 {
                     // dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +100, 0);      // Throttle up (disabled)
                     // dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -100, 0);    // Throttle down (disabled)
-                    dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -100);    // Yaw left
-                    dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +100);   // Yaw right
+                    dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -_rcStepPwm);    // Yaw left
+                    dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +_rcStepPwm);   // Yaw right
                 }
                 if (dpadRight != null)
                 {
-                    dpadRight.UpChanged += (s, a) => RcStep_Send(a, 0, -100, 0, 0);    // Pitch forward
-                    dpadRight.DownChanged += (s, a) => RcStep_Send(a, 0, +100, 0, 0);  // Pitch back
-                    dpadRight.LeftChanged += (s, a) => RcStep_Send(a, -100, 0, 0, 0);  // Roll left
-                    dpadRight.RightChanged += (s, a) => RcStep_Send(a, +100, 0, 0, 0); // Roll right
+                    dpadRight.UpChanged += (s, a) => RcStep_Send(a, 0, -_rcStepPwm, 0, 0);    // Pitch forward
+                    dpadRight.DownChanged += (s, a) => RcStep_Send(a, 0, +_rcStepPwm, 0, 0);  // Pitch back
+                    dpadRight.LeftChanged += (s, a) => RcStep_Send(a, -_rcStepPwm, 0, 0, 0);  // Roll left
+                    dpadRight.RightChanged += (s, a) => RcStep_Send(a, +_rcStepPwm, 0, 0, 0); // Roll right
                 }
             }
             catch { }
@@ -3129,6 +3138,7 @@ namespace MissionPlanner.GCSViews
         private int _rcOverridePitchPwm = 1500;
         private int _rcOverrideThrottlePwm = 1500;
         private int _rcOverrideYawPwm = 1500;
+        private int _rcStepPwm = 250; // default 25%
 
         private void RcStep_Send(bool active, int dRoll, int dPitch, int dThrottle, int dYaw)
         {
@@ -3169,7 +3179,7 @@ namespace MissionPlanner.GCSViews
                     MainV2.comPort.SendRCOverride(sysid, compid,
                         roll,
                         pitch,
-                        65535,
+                        throttle,
                         yaw,
                         65535, 65535, 65535, 65535);
 
@@ -3213,7 +3223,7 @@ namespace MissionPlanner.GCSViews
 
                         for (int i = 0; i < 3; i++)
                         {
-                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 65535, 1500, 65535, 65535,65535, 65535);
+                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 1500, 1500, 65535, 65535,65535, 65535);
                             System.Threading.Thread.Sleep(40);
                         }
 
@@ -3232,6 +3242,23 @@ namespace MissionPlanner.GCSViews
         }
 
         private static int Clamp1100_1900(int v) => Math.Max(1100, Math.Min(1900, v));
+
+        private void UpdateRcStepFromUI()
+        {
+            try
+            {
+                var sel = (cmbRcStep?.SelectedItem as string) ?? "25%";
+                switch (sel)
+                {
+                    case "15%": _rcStepPwm = 150; break;
+                    case "25%": _rcStepPwm = 250; break;
+                    case "30%": _rcStepPwm = 300; break;
+                    default: _rcStepPwm = 250; break;
+                }
+                log.Info($"RC Step set to {_rcStepPwm}us ({sel})");
+            }
+            catch { _rcStepPwm = 250; }
+        }
 
 
         
@@ -7242,6 +7269,17 @@ namespace MissionPlanner.GCSViews
                 var leftY = rightY;
                 dpadLeft.Location = new Point(leftX, leftY);
                 dpadLeft.Size = size;
+
+                // Position step selector to the left of left DPad
+                if (cmbRcStep != null)
+                {
+                    var comboSize = new Size(72, cmbRcStep.Height > 0 ? cmbRcStep.Height : 23);
+                    var comboX = leftX - comboSize.Width - margin;
+                    var comboY = leftY + size.Height - comboSize.Height; // bottom aligned with dpads
+                    cmbRcStep.Location = new Point(comboX, comboY);
+                    cmbRcStep.Size = comboSize;
+                    cmbRcStep.BringToFront();
+                }
 
                 dpadLeft.BringToFront();
                 dpadRight.BringToFront();
