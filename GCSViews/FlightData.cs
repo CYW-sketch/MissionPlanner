@@ -275,8 +275,8 @@ namespace MissionPlanner.GCSViews
 
                 if (dpadLeft != null)
                 {
-                    // dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +100, 0);      // Throttle up (disabled)
-                    // dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -100, 0);    // Throttle down (disabled)
+                    dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +_rcStepPwm, 0);      // Throttle up (disabled)
+                    dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -_rcStepPwm, 0);    // Throttle down (disabled)
                     dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -_rcStepPwm);    // Yaw left
                     dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +_rcStepPwm);   // Yaw right
                 }
@@ -3174,7 +3174,7 @@ namespace MissionPlanner.GCSViews
                     ushort throttle = (ushort)(dThrottle != 0 ? _rcOverrideThrottlePwm : currentThrottle);
                     ushort yaw = (ushort)(dYaw != 0 ? _rcOverrideYawPwm : 1500);
 
-                    // log.Info($"RC OVERRIDE (press): CH1={roll} CH2={pitch} CH3={throttle} CH4={yaw} CH5=1500 CH6=1500 CH7=1500 CH8=1500");
+                    log.Info($"RC OVERRIDE (press): CH1={roll} CH2={pitch} CH3={throttle} CH4={yaw}");
 
                     MainV2.comPort.SendRCOverride(sysid, compid,
                         roll,
@@ -3184,16 +3184,16 @@ namespace MissionPlanner.GCSViews
                         65535, 65535, 65535, 65535);
 
                     // After a short delay, read back the vehicle's actual RC input values to log
-                    // System.Threading.Tasks.Task.Run(() =>
-                    // {
-                    //     try
-                    //     {
-                    //         System.Threading.Thread.Sleep(80);
-                    //         var csread = MainV2.comPort.MAV.cs;
-                    //         // log.Info($"RC INPUT (vehicle): CH1={csread.ch1in} CH2={csread.ch2in} CH3={csread.ch3in} CH4={csread.ch4in}");
-                    //     }
-                    //     catch { }
-                    // });
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try
+                        {
+                            System.Threading.Thread.Sleep(80);
+                            var csread = MainV2.comPort.MAV.cs;
+                            // log.Info($"RC INPUT (vehicle): CH1={csread.ch1in} CH2={csread.ch2in} CH3={csread.ch3in} CH4={csread.ch4in}");
+                        }
+                        catch { }
+                    });
                 }
                 catch { }
             }
