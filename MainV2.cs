@@ -1412,7 +1412,7 @@ namespace MissionPlanner
                 // 设置TCP地址配置
                 AutoConnectManager.SetTcpAddresses(primaryHost, primaryPort, backupHost, backupPort);
                 AutoConnectManager.SetQualityPolicy(qualityThreshold, qualityWindowSec, minSwitchIntervalSec);
-                // AutoConnectManager.EnableDualListen = true; // 暂时禁用：双端UDP监听功能
+                AutoConnectManager.EnableDualListen = true; // 启用：双端UDP监听功能
                 
                 // 加载上次连接的TCP地址作为当前地址
                 string lastHost = Settings.Instance.GetString("LastTCP_Host", "");
@@ -1427,7 +1427,7 @@ namespace MissionPlanner
                     AutoConnectManager.EnableAutoConnect();
                 }
 
-                log.Info($"AutoConnect configured - Primary: {primaryHost}:{primaryPort}, Backup: {backupHost}:{backupPort}, Threshold: {qualityThreshold:P0}, Window: {qualityWindowSec}s, MinSwitch: {minSwitchIntervalSec}s, DualListen: false, Enabled: {enabled}");
+                log.Info($"AutoConnect configured - Primary: {primaryHost}:{primaryPort}, Backup: {backupHost}:{backupPort}, Threshold: {qualityThreshold:P0}, Window: {qualityWindowSec}s, MinSwitch: {minSwitchIntervalSec}s, DualListen: {AutoConnectManager.EnableDualListen}, Enabled: {enabled}");
             }
             catch (Exception ex)
             {
@@ -1726,7 +1726,7 @@ namespace MissionPlanner
                             AutoConnectManager.SetQualityPolicy(Math.Max(0.0, Math.Min(1.0, q)), Math.Max(1, w), Math.Max(1, m));
                         }
                         
-                        // AutoConnectManager.EnableDualListen = true; // 暂时禁用：双端UDP监听功能
+                        AutoConnectManager.EnableDualListen = true; // 启用：双端UDP监听功能
 
                         if (chkEnabled.Checked)
                         {
@@ -5349,16 +5349,21 @@ namespace MissionPlanner
         private System.Threading.Timer _connectionMonitorTimer;
         private bool _isReconnecting = false;
         private double _qualityThreshold = 0.7; // 0..1
+        private double _qualityDifferenceThreshold = 0.1; // 质量差异阈值，避免频繁切换
         private int _qualityWindowSec = 3;
         private int _minSwitchIntervalSec = 10;
         private DateTime _lastSwitchUtc = DateTime.MinValue;
         private IDisposable _qualitySub;
+        private IDisposable _passiveQualitySub;
         private MAVLinkInterface _passiveMav;
         private MissionPlanner.Comms.TcpSerial _passiveTcp;
+        private double _passiveQuality = 0.0;
+        private DateTime _lastQualityReport = DateTime.MinValue;
+        private System.Threading.Timer _qualityReportTimer;
         public bool EnableDualListen { get; set; } = false;
         private bool _manualConnectedOnce = false;
-        private const string _udpPortA = "14451";
-        private const string _udpPortB = "14452";
+        private const string _udpPortA = "14551";
+        private const string _udpPortB = "14552";
 
         /// <summary>
         /// 是否启用自动连接
@@ -5444,6 +5449,11 @@ namespace MissionPlanner
                 // 注意：初始化时不立即启动被动监听，避免在手动连接完成前占用资源
             }
             catch { }
+            
+            // 设置定期质量报告定时器（每30秒报告一次）
+            _qualityReportTimer?.Dispose();
+            _qualityReportTimer = new System.Threading.Timer(_ => ReportQualityStatus(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            
             log.Info("AutoConnectManager initialized");
         }
 
@@ -5455,10 +5465,6 @@ namespace MissionPlanner
                 try { _passiveTcp?.Close(); } catch {}
                 _passiveMav = null;
                 _passiveTcp = null;
-
-                // 暂时禁用：双端监听（包括 UDP 双端口监听）功能
-                // 现阶段不需要该功能，直接返回。
-                return;
 
                 if (!EnableDualListen || !_manualConnectedOnce)
                     return;
@@ -5478,14 +5484,39 @@ namespace MissionPlanner
                     _passiveMav = new MAVLinkInterface { BaseStream = _passiveTcp };
                     System.Threading.Tasks.Task.Run(() =>
                     {
-                        try { _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false); } catch { }
+                        try 
+                        { 
+                            _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
+                            SetupPassiveQualityMonitoring();
+                        } 
+                        catch { }
                     });
                 }
                 else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                 {
-                    // UDP 双监听：根据当前手动选择的本地监听端口（14551/14552），被动监听另一端
+                    // UDP 双监听：根据当前手动选择的本地监听端口，智能选择被动监听端口
                     var activeUdpPort = (MainV2.comPort.BaseStream as dynamic).Port as string;
-                    var passivePort = activeUdpPort == _udpPortA ? _udpPortB : _udpPortA;
+                    string passivePort;
+                    
+                    // 智能端口选择逻辑：
+                    // 1. 如果主动端口是14551，被动端口为14552
+                    // 2. 如果主动端口是14552，被动端口为14551
+                    // 3. 如果主动端口是其他端口，默认被动端口为14551
+                    if (activeUdpPort == _udpPortA)
+                    {
+                        passivePort = _udpPortB; // 14552
+                    }
+                    else if (activeUdpPort == _udpPortB)
+                    {
+                        passivePort = _udpPortA; // 14551
+                    }
+                    else
+                    {
+                        // 用户输入的其他端口，默认被动监听14551
+                        passivePort = _udpPortA; // 14551
+                    }
+
+                    log.Info($"UDP Dual Listen: Active port {activeUdpPort} -> Passive port {passivePort}");
 
                     var udp = new MissionPlanner.Comms.UdpSerial();
                     udp.Port = passivePort;
@@ -5494,7 +5525,13 @@ namespace MissionPlanner
                     _passiveMav = new MAVLinkInterface { BaseStream = udp };
                     System.Threading.Tasks.Task.Run(() =>
                     {
-                        try { udp.Open(); _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false); } catch { }
+                        try 
+                        { 
+                            udp.Open(); 
+                            _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
+                            SetupPassiveQualityMonitoring();
+                        } 
+                        catch { }
                     });
                 }
                 else
@@ -5506,6 +5543,139 @@ namespace MissionPlanner
             catch (Exception ex)
             {
                 log.Warn("Passive listener failed to start", ex);
+            }
+        }
+
+        /// <summary>
+        /// 设置被动监听的质量监控
+        /// </summary>
+        private void SetupPassiveQualityMonitoring()
+        {
+            try
+            {
+                if (_passiveMav == null) return;
+
+                // 清理旧的订阅
+                _passiveQualitySub?.Dispose();
+
+                // 订阅被动监听的质量监控
+                _passiveQualitySub = System.Reactive.Linq.Observable
+                    .CombineLatest(
+                        _passiveMav.WhenPacketReceived.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                        _passiveMav.WhenPacketLost.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                        (rx, lost) => new { rx, lost })
+                    .Subscribe(v =>
+                    {
+                        double denom = v.rx + v.lost;
+                        _passiveQuality = denom <= 0 ? 0 : v.rx / denom;
+                        
+                        // 定期报告被动监听质量
+                        if (DateTime.Now - _lastQualityReport > TimeSpan.FromSeconds(5))
+                        {
+                            log.Info($"Passive Quality Monitor: RX={v.rx}, Lost={v.lost}, Quality={_passiveQuality:0.00}");
+                            _lastQualityReport = DateTime.Now;
+                        }
+                    });
+
+                log.Info("Passive quality monitoring started");
+            }
+            catch (Exception ex)
+            {
+                log.Warn("Failed to setup passive quality monitoring", ex);
+            }
+        }
+
+        /// <summary>
+        /// 定期报告质量状态
+        /// </summary>
+        private void ReportQualityStatus()
+        {
+            try
+            {
+                if (!_isEnabled || MainV2.comPort?.BaseStream?.IsOpen != true)
+                    return;
+
+                var activePort = GetCurrentPortInfo();
+                var passivePort = GetPassivePortInfo();
+                
+                log.Info($"=== Quality Status Report ===");
+                log.Info($"Active: {activePort} (Quality: {GetCurrentQuality():0.00})");
+                
+                if (EnableDualListen && _passiveMav != null)
+                {
+                    log.Info($"Passive: {passivePort} (Quality: {_passiveQuality:0.00})");
+                    log.Info($"Threshold: {_qualityThreshold:0.00}, DiffThreshold: {_qualityDifferenceThreshold:0.00}, Window: {_qualityWindowSec}s, MinSwitch: {_minSwitchIntervalSec}s");
+                }
+                else
+                {
+                    log.Info($"Dual Listen: Disabled");
+                }
+                log.Info($"=============================");
+            }
+            catch (Exception ex)
+            {
+                log.Warn("Error reporting quality status", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取当前端口信息
+        /// </summary>
+        private string GetCurrentPortInfo()
+        {
+            try
+            {
+                if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial tcp)
+                    return $"TCP {tcp.Host}:{tcp.Port}";
+                else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial udp)
+                    return $"UDP {udp.Port}";
+                else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect udpCl)
+                    return $"UDPCl {udpCl.Port}";
+                else
+                    return "Unknown";
+            }
+            catch
+            {
+                return "Unknown";
+            }
+        }
+
+        /// <summary>
+        /// 获取被动端口信息
+        /// </summary>
+        private string GetPassivePortInfo()
+        {
+            try
+            {
+                if (_passiveTcp != null)
+                    return $"TCP {_passiveTcp.Host}:{_passiveTcp.Port}";
+                else if (_passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerial udp)
+                    return $"UDP {udp.Port}";
+                else
+                    return "Not Available";
+            }
+            catch
+            {
+                return "Not Available";
+            }
+        }
+
+        /// <summary>
+        /// 获取当前质量（简化版本）
+        /// </summary>
+        private double GetCurrentQuality()
+        {
+            try
+            {
+                if (MainV2.comPort?.MAV?.cs != null)
+                {
+                    return MainV2.comPort.MAV.cs.linkqualitygcs / 100.0;
+                }
+                return 0.0;
+            }
+            catch
+            {
+                return 0.0;
             }
         }
 
@@ -5526,11 +5696,14 @@ namespace MissionPlanner
             log.Info($"AutoConnectManager configured - Primary: {primaryHost}:{_primaryTcpPort}, Backup: {backupHost}:{_backupTcpPort}");
         }
 
-        public void SetQualityPolicy(double threshold, int windowSec, int minSwitchIntervalSec)
+        public void SetQualityPolicy(double threshold, int windowSec, int minSwitchIntervalSec, double qualityDifferenceThreshold = 0.1)
         {
             _qualityThreshold = Math.Max(0.0, Math.Min(1.0, threshold));
             _qualityWindowSec = Math.Max(1, windowSec);
             _minSwitchIntervalSec = Math.Max(1, minSwitchIntervalSec);
+            _qualityDifferenceThreshold = Math.Max(0.0, Math.Min(0.5, qualityDifferenceThreshold));
+            
+            log.Info($"Quality policy updated - Threshold: {_qualityThreshold:0.00}, Window: {_qualityWindowSec}s, MinSwitch: {_minSwitchIntervalSec}s, DiffThreshold: {_qualityDifferenceThreshold:0.00}");
         }
 
         /// <summary>
@@ -5549,6 +5722,19 @@ namespace MissionPlanner
         public void DisableAutoConnect()
         {
             _isEnabled = false;
+            
+            // 清理质量监控订阅
+            _qualitySub?.Dispose();
+            _passiveQualitySub?.Dispose();
+            
+            // 清理定时器
+            _qualityReportTimer?.Dispose();
+            
+            // 清理被动监听
+            try { _passiveTcp?.Close(); } catch {}
+            _passiveMav = null;
+            _passiveTcp = null;
+            
             log.Info("AutoConnectManager disabled");
         }
 
@@ -5771,33 +5957,60 @@ namespace MissionPlanner
 
             try
             {
+                // 定期报告主动链路质量
+                if (DateTime.Now - _lastQualityReport > TimeSpan.FromSeconds(5))
+                {
+                    log.Info($"Active Quality Monitor: Quality={quality:0.00}, Threshold={_qualityThreshold:0.00}");
+                    _lastQualityReport = DateTime.Now;
+                }
+
                 // 如果启用双监听，并且备用链路质量更好，则主动切换
                 if (EnableDualListen && _passiveMav != null)
                 {
-                    // 计算被动端窗口质量
-                    // 这里简单用最近窗口的 rx/(rx+lost) 估计；如需更精细可引入单独的缓冲
-                    // 如果无法取得数据，视为 0
-                    int rx = 0, lost = 0;
-                    try
-                    {
-                        // 无直接计数缓存，这里不读；由前面的窗口触发逻辑驱动
-                    }
-                    catch { }
-                    double passiveQuality = 0; // 留作扩展：如需从 _passiveMav 暴露统计流
+                    // 使用实际的被动质量数据
+                    double passiveQuality = _passiveQuality;
 
-                    // 若被动端质量显著高于阈值且当前端低于阈值，则切换
-                    if (quality < _qualityThreshold && passiveQuality >= _qualityThreshold)
+                    // 详细的双端质量对比日志
+                    log.Debug($"Dual Listen Quality Check - Active: {quality:0.00}, Passive: {passiveQuality:0.00}, Threshold: {_qualityThreshold:0.00}, DiffThreshold: {_qualityDifferenceThreshold:0.00}");
+
+                    // 使用智能切换决策算法
+                    if (ShouldSwitchToPassive(quality, passiveQuality))
                     {
                         if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds >= _minSwitchIntervalSec)
                         {
-                            string target = GetAlternateHost();
-                            if (!string.IsNullOrEmpty(target))
+                            // 判断是UDP双监听还是TCP双监听
+                            if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                                MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                             {
-                                string port = GetPortForHost(target);
-                                log.Warn($"Active quality {quality:0.00} < thr {_qualityThreshold:0.00} and passive >= thr, switching to {target}:{port}");
-                                AttemptReconnect();
+                                // UDP双监听：切换到被动端口
+                                log.Warn($"UDP DUAL SWITCH: Active quality {quality:0.00} < passive quality {passiveQuality:0.00}, switching to passive port");
+                                SwitchToPassivePort();
                                 return;
                             }
+                            else
+                            {
+                                // TCP双监听：切换到备用地址
+                                string target = GetAlternateHost();
+                                if (!string.IsNullOrEmpty(target))
+                                {
+                                    string port = GetPortForHost(target);
+                                    log.Warn($"TCP DUAL SWITCH: Active quality {quality:0.00} < passive quality {passiveQuality:0.00}, switching to {target}:{port}");
+                                    AttemptReconnect();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 记录不切换的原因
+                        if (quality < _qualityThreshold && passiveQuality < _qualityThreshold)
+                        {
+                            log.Info($"Both active ({quality:0.00}) and passive ({passiveQuality:0.00}) quality below threshold ({_qualityThreshold:0.00}) - no switch");
+                        }
+                        else if (passiveQuality <= quality + _qualityDifferenceThreshold)
+                        {
+                            log.Debug($"Passive quality ({passiveQuality:0.00}) not significantly better than active ({quality:0.00}) - no switch");
                         }
                     }
                 }
@@ -5828,6 +6041,106 @@ namespace MissionPlanner
             if (CurrentTcpHost == _backupTcpHost && !string.IsNullOrEmpty(_primaryTcpHost)) return _primaryTcpHost;
             if (!string.IsNullOrEmpty(_backupTcpHost)) return _backupTcpHost;
             return _primaryTcpHost;
+        }
+
+        /// <summary>
+        /// 获取被动监听的端口（用于UDP双监听切换）
+        /// </summary>
+        private string GetPassivePort()
+        {
+            try
+            {
+                if (_passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerial udp)
+                {
+                    return udp.Port;
+                }
+                else if (_passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerialConnect udpCl)
+                {
+                    return udpCl.Port;
+                }
+                else if (_passiveTcp != null)
+                {
+                    return _passiveTcp.Port;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>
+        /// 智能切换决策：选择质量更高的连接
+        /// </summary>
+        private bool ShouldSwitchToPassive(double activeQuality, double passiveQuality)
+        {
+            // 1. 如果主动质量低于阈值，被动质量高于阈值，则切换
+            if (activeQuality < _qualityThreshold && passiveQuality >= _qualityThreshold)
+            {
+                return true;
+            }
+
+            // 2. 如果被动质量显著高于主动质量（超过差异阈值），则切换
+            if (passiveQuality > activeQuality + _qualityDifferenceThreshold)
+            {
+                return true;
+            }
+
+            // 3. 如果主动质量很低（低于阈值的一半），被动质量相对较好，则切换
+            if (activeQuality < _qualityThreshold * 0.5 && passiveQuality > _qualityThreshold * 0.7)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 切换到被动监听端口（UDP双监听模式）
+        /// </summary>
+        private void SwitchToPassivePort()
+        {
+            try
+            {
+                var passivePort = GetPassivePort();
+                if (string.IsNullOrEmpty(passivePort))
+                {
+                    log.Warn("No passive port available for switching");
+                    return;
+                }
+
+                log.Info($"Switching to passive UDP port: {passivePort}");
+
+                // 断开当前连接
+                if (MainV2.comPort?.BaseStream?.IsOpen == true)
+                {
+                    MainV2.comPort.Close();
+                }
+
+                // 创建新的UDP连接
+                var udp = new MissionPlanner.Comms.UdpSerial();
+                udp.Port = passivePort;
+                udp.SuppressPrompts = true;
+
+                // 设置到主连接端口
+                MainV2.comPort.BaseStream = udp;
+                udp.Open();
+
+                _lastSwitchUtc = DateTime.UtcNow;
+
+                // 更新连接状态
+                MainV2.instance.BeginInvoke((Action)delegate
+                {
+                    MainV2.instance.UpdateConnectionStatus(true);
+                });
+
+                // 重新设置被动监听（现在原来的主动端口变成被动端口）
+                SetupPassiveListener();
+
+                log.Info($"Successfully switched to passive UDP port: {passivePort}");
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Failed to switch to passive port", ex);
+            }
         }
 
         /// <summary>
