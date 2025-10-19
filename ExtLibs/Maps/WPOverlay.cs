@@ -586,23 +586,24 @@ namespace MissionPlanner.ArduPilot
                     hasAny = true;
                 }
 
-                // 垂直爬升/下降时间（使用真实米制高度：pointlist 中的 Alt）
-                double? targetAltM = GetWaypointAltMeters(tag);
-                double homeAltM = _currentHome.Alt;
-                if (targetAltM.HasValue)
+                // 起飞时间：目标高度 ÷ 上升速度（从地面起飞到目标高度）
+                double? targetAltM = alt;
+                if (targetAltM.HasValue && ClimbSpeedMS.HasValue && ClimbSpeedMS.Value > 0.01f)
                 {
-                    double delta = Math.Abs(targetAltM.Value - homeAltM);
-                    if (ClimbSpeedMS.HasValue && ClimbSpeedMS.Value > 0.01f)
-                    {
-                        totalSeconds += delta / ClimbSpeedMS.Value; // 上升时间
-                        hasAny = true;
-                    }
-                    if (DescentSpeedMS.HasValue && DescentSpeedMS.Value > 0.01f)
-                    {
-                        totalSeconds += delta / DescentSpeedMS.Value; // 下降时间
-                        hasAny = true;
-                    }
+                    double takeoffTime = targetAltM.Value / ClimbSpeedMS.Value;
+                    totalSeconds += takeoffTime;
+                    hasAny = true;
                 }
+
+                // 下降时间，目的地高度除以下降速度
+                if (targetAltM.HasValue && DescentSpeedMS.HasValue && DescentSpeedMS.Value > 0.01f)
+                {
+                    double descentTime = targetAltM.Value / DescentSpeedMS.Value;
+                    totalSeconds += descentTime;
+                    hasAny = true;
+                }
+ 
+
 
                 if (hasAny)
                 {
@@ -610,7 +611,7 @@ namespace MissionPlanner.ArduPilot
                 }
 
                 if (!string.IsNullOrEmpty(altText) && !string.IsNullOrEmpty(timeText))
-                    return $"{tag}\n{altText}\n目的地距离: {distText}\n飞行速度:{usedSpeed?.ToString("0.00")}m/s\n预计时间: {timeText}";
+                    return $"{tag}\n{altText}\n目的地距离: {distText}\n,预计时间: {timeText}";
                 if (!string.IsNullOrEmpty(altText))
                     return $"{tag}\n{altText}\n目的地距离: {distText}";
                 if (!string.IsNullOrEmpty(timeText))
