@@ -8657,11 +8657,14 @@ namespace MissionPlanner.GCSViews
 
                 // 计算水平飞行时间 (秒)
                 double horizontalTime = horizontalDistance / flightSpeed;
+                
+                // 调试信息：显示距离和水平飞行时间
+                log.Info($"水平飞行计算 - 距离: {horizontalDistance:F1}m ÷ 飞行速度: {flightSpeed:F1}m/s = {horizontalTime:F1}秒");
 
                 // 计算垂直飞行时间 (秒)
                 // 使用默认的上升/下降速度 (从参数中获取或使用默认值)
-                double climbSpeed = 2.0; // 默认上升速度 2 m/s
-                double descentSpeed = 1.5; // 默认下降速度 1.5 m/s
+                double climbSpeed =5.0; // 默认上升速度 2 m/s
+                double descentSpeed = 5.0; // 默认下降速度 1.5 m/s
 
                 // 尝试从参数中获取实际的速度设置
                 try
@@ -8670,12 +8673,32 @@ namespace MissionPlanner.GCSViews
                     {
                         if (MainV2.comPort.MAV.param.ContainsKey("WPNAV_SPEED_UP"))
                         {
-                            climbSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_UP"] / 100.0; // 转换为 m/s
+                            float rawUpSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_UP"];
+                            climbSpeed = rawUpSpeed / 100.0; // 转换为 m/s
+                            log.Info($"读取到上升速度参数 WPNAV_SPEED_UP: {rawUpSpeed} (原始值) -> {climbSpeed:F2} m/s");
                         }
+                        else
+                        {
+                            log.Warn("未找到上升速度参数 WPNAV_SPEED_UP，使用默认值 2.0 m/s");
+                        }
+                        
                         if (MainV2.comPort.MAV.param.ContainsKey("WPNAV_SPEED_DN"))
                         {
-                            descentSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_DN"] / 100.0; // 转换为 m/s
+                            float rawDownSpeed = (float)MainV2.comPort.MAV.param["WPNAV_SPEED_DN"];
+                            descentSpeed = rawDownSpeed / 100.0; // 转换为 m/s
+                            log.Info($"读取到下降速度参数 WPNAV_SPEED_DN: {rawDownSpeed} (原始值) -> {descentSpeed:F2} m/s");
                         }
+                        else
+                        {
+                            log.Warn("未找到下降速度参数 WPNAV_SPEED_DN，使用默认值 1.5 m/s");
+                        }
+                        
+                        // 显示所有相关的速度参数用于调试
+                        log.Info($"最终使用的速度参数 - 上升速度: {climbSpeed:F2} m/s, 下降速度: {descentSpeed:F2} m/s");
+                    }
+                    else
+                    {
+                        log.Warn("MAV参数为空，无法读取速度参数，使用默认值");
                     }
                 }
                 catch (Exception ex)
@@ -8684,22 +8707,29 @@ namespace MissionPlanner.GCSViews
                 }
 
                 double verticalTime = 0;
-                if (altitudeDifference > 0)
-                {
-                    if (landAlt > takeoffAlt)
-                    {
-                        // 需要上升
-                        verticalTime = altitudeDifference / climbSpeed;
-                    }
-                    else
-                    {
-                        // 需要下降
-                        verticalTime = altitudeDifference / descentSpeed;
-                    }
-                }
+                // if (altitudeDifference > 0)
+                // {
+                //     if (landAlt > takeoffAlt)
+                //     {
+                //         // 需要上升
+                //         verticalTime = altitudeDifference / climbSpeed;
+                //         log.Info($"垂直飞行计算 - 需要上升: 高度差 {altitudeDifference:F1}m ÷ 上升速度 {climbSpeed:F2}m/s = {verticalTime:F1}秒");
+                //     }
+                //     else
+                //     {
+                //         // 需要下降
+                //         verticalTime = altitudeDifference / descentSpeed;
+                //         log.Info($"垂直飞行计算 - 需要下降: 高度差 {altitudeDifference:F1}m ÷ 下降速度 {descentSpeed:F2}m/s = {verticalTime:F1}秒");
+                //     }
+                // }
+                // else
+                // {
+                //     log.Info("垂直飞行计算 - 无高度差，垂直飞行时间为0秒");
+                // }
 
-                // 起飞时间 (假设需要30秒)
-                double takeoffTime = 30.0;
+                // 起飞时间计算：起飞高度 ÷ 上升速度
+                double takeoffTime = landAlt / climbSpeed;
+                log.Info($"起飞时间计算 - 起飞高度: {landAlt:F1}m ÷ 上升速度: {climbSpeed:F2}m/s = {takeoffTime:F1}秒");
 
                 // 降落时间 (根据降落模式)
                 double landingTime = 0;
@@ -8708,34 +8738,54 @@ namespace MissionPlanner.GCSViews
                     switch (landingMode)
                     {
                         case RemoteTakeoffLandingForm.LandingMode.LandGround:
-                            landingTime = 60.0; // 地面降落需要60秒
+                            landingTime = landAlt / descentSpeed; // 地面降落需要60秒
+                            log.Info($"降落时间计算 - 降落高度: {landAlt:F1}m ÷ 下降速度: {descentSpeed:F2}m/s = {landingTime:F1}秒");
                             break;
                         case RemoteTakeoffLandingForm.LandingMode.LandCargo:
-                            landingTime = 90.0; // 货物降落需要90秒
+                            landingTime = landAlt / descentSpeed+cargoTime; // 货物降落需要90秒
+                            log.Info($"降落时间计算 - 降落高度: {landAlt:F1}m ÷ 下降速度: {descentSpeed:F2}m/s + 货物处理时间: {cargoTime:F1}秒 = {landingTime:F1}秒");
                             break;
                         case RemoteTakeoffLandingForm.LandingMode.LandDrop:
-                            landingTime = 45.0; // 空投降落需要45秒
+                            landingTime = (landAlt-dropHeight) / descentSpeed; // 空投降落需要45秒
+                            log.Info($"降落时间计算 - (降落高度: {landAlt:F1}m - 空投高度: {dropHeight:F1}m) ÷ 下降速度: {descentSpeed:F2}m/s = {landingTime:F1}秒");
                             break;
                         default:
-                            landingTime = 30.0; // 默认降落时间
+                            landingTime = landAlt / descentSpeed; // 默认降落时间
                             break;
                     }
                 }
 
                 // 空投额外时间
-                double airDropTime = 0;
-                if (landingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop && dropHeight > 0)
-                {
-                    // 空投需要额外的时间来下降到指定高度
-                    airDropTime = dropHeight / descentSpeed;
-                }
+                double airDropTime = 5;
+                // if (landingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop && dropHeight > 0)
+                // {
+                //     // 空投需要额外的时间来下降到指定高度
+                //     airDropTime = dropHeight / descentSpeed;
+                //     log.Info($"空投时间计算 - 空投高度: {dropHeight:F1}m ÷ 下降速度: {descentSpeed:F2}m/s = {airDropTime:F1}秒");
+                // }
+                // else
+                // {
+                //     log.Info("空投时间计算 - 非空投模式或无空投高度，空投时间为0秒");
+                // }
 
                 // 总时间计算
-                double totalTimeSeconds = takeoffTime + Math.Max(horizontalTime, verticalTime) + 
-                    landingTime + airDropTime + cargoTime;
+                double maxFlightTime = Math.Max(horizontalTime, verticalTime);
+                double totalTimeSeconds = takeoffTime + maxFlightTime + landingTime + airDropTime + cargoTime;
+                
+                // 调试信息：显示各时间组成部分
+                log.Info($"时间计算详情:");
+                log.Info($"  起飞时间: {takeoffTime:F1}秒");
+                log.Info($"  水平飞行时间: {horizontalTime:F1}秒");
+                // log.Info($"  垂直飞行时间: {verticalTime:F1}秒");
+                // log.Info($"  最大飞行时间: {maxFlightTime:F1}秒 (max(水平, 垂直))");
+                log.Info($"  降落时间: {landingTime:F1}秒");
+                log.Info($"  空投时间: {airDropTime:F1}秒");
+                log.Info($"  货物处理时间: {cargoTime:F1}秒");
+                log.Info($"  基础总时间: {totalTimeSeconds:F1}秒");
 
                 // 添加10%的安全余量
-                totalTimeSeconds *= 1.1;
+                totalTimeSeconds *= 2.2;
+                log.Info($"加返航和安全余量(20%)后总时间: {totalTimeSeconds:F1}秒");
 
                 return TimeSpan.FromSeconds(totalTimeSeconds);
             }
@@ -8850,12 +8900,12 @@ namespace MissionPlanner.GCSViews
                 else if (rdoRemoteModeAirDrop.Checked) modeText = "空投降落";
 
                 string message = $"确定要开始异地起降任务吗？\n\n" +
-                    $"📍 起点: {takeoffLat:F6}, {takeoffLng:F6} (高度: {landAlt:F0}m)\n" +
-                    $"🎯 终点: {landLat:F6}, {landLng:F6} (高度: {landAlt:F0}m)\n" +
-                    $"📏 距离: {distance:F0} 米\n" +
-                    $"🚀 飞行速度: {speedText}\n" +
-                    $"🛬 降落模式: {modeText}\n" +
-                    $"⏱️ {timeInfo}\n\n" +
+                    $"起点: {takeoffLat:F6}, {takeoffLng:F6} (高度: {landAlt:F0}m)\n" +
+                    $"终点: {landLat:F6}, {landLng:F6} (高度: {landAlt:F0}m)\n" +
+                    $"距离: {distance:F0} 米\n" +
+                    $"飞行速度: {speedText}\n" +
+                    $"降落模式: {modeText}\n" +
+                    $"{timeInfo}\n\n" +
                     $"这将启动自动飞行模式并开始执行航点任务。";
 
                 var result = CustomMessageBox.Show(message, "确认开始异地起降", 
