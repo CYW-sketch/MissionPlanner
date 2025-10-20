@@ -661,7 +661,7 @@ namespace MissionPlanner.GCSViews
 			this.tabRemoteTakeoffLanding.Controls.Add(this.pnlRemoteDestination);
             this.tabRemoteTakeoffLanding.Name = "tabRemoteTakeoffLanding";
             this.tabRemoteTakeoffLanding.UseVisualStyleBackColor = true;
-            this.tabRemoteTakeoffLanding.Text = "广东梵亚无人机异地起降";
+            this.tabRemoteTakeoffLanding.Text = "广东梵亚异地起降";
 			// 
 			// pnlRemoteDestination
 			// 

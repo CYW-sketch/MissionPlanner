@@ -552,7 +552,7 @@ namespace MissionPlanner.GCSViews
                                     var c = row.Cells[Command.Index].Value?.ToString();
                                     if (string.IsNullOrEmpty(c)) continue;
                                     if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue; // 忽略 RTL
-                                    if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue; // 忽略普通航点（可能是降落后的标记）
+                                    if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) { needTakeoffBeforeThisSegment = false; break; } // 忽略普通航点（可能是降落后的标记）
                                     if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeThisSegment = true; break; }
                                     if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeThisSegment = false; break; }
                                 }
@@ -1990,7 +1990,7 @@ namespace MissionPlanner.GCSViews
                         var c = row.Cells[Command.Index].Value?.ToString();
                         if (string.IsNullOrEmpty(c)) continue;
                         if (c == MAVLink.MAV_CMD.RETURN_TO_LAUNCH.ToString()) continue; // 忽略 RTL
-                        if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) continue; // 忽略普通航点（可能是降落后的标记）
+                        if (c == MAVLink.MAV_CMD.WAYPOINT.ToString()) { needTakeoffBeforeThisSegment = false; break; } // 忽略普通航点（可能是降落后的标记）
                         if (c == MAVLink.MAV_CMD.LAND.ToString()) { needTakeoffBeforeThisSegment = true; break; }
                         if (c == MAVLink.MAV_CMD.TAKEOFF.ToString()) { needTakeoffBeforeThisSegment = false; break; }
                     }
@@ -2185,7 +2185,7 @@ namespace MissionPlanner.GCSViews
                             }
                             AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
                             // 返航指令默认使用Absolute模式
-                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
                         }
                     }
                 }
@@ -7161,8 +7161,7 @@ namespace MissionPlanner.GCSViews
                     {
                         if (cellhome.Value.ToString() != TXT_homelat.Text && cellhome.Value.ToString() != "0")
                         {
-                            var dr = CustomMessageBox.Show("Reset Home to loaded coords", "Reset Home Coords",
-                                MessageBoxButtons.YesNo);
+                            var dr = (int) DialogResult.Yes;
 
                             if (dr == (int) DialogResult.Yes)
                             {

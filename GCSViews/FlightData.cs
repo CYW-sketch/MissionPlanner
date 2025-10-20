@@ -7674,8 +7674,8 @@ namespace MissionPlanner.GCSViews
 				ProcessRemoteTakeoffLandingFromUI();
 				
 				// 显示成功消息
-				CustomMessageBox.Show("异地起降任务已成功添加！", "成功", 
-					CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+				// CustomMessageBox.Show("异地起降任务已成功添加！", "成功", 
+				// 	CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
 			}
 			catch (Exception ex)
 			{
@@ -7714,8 +7714,8 @@ namespace MissionPlanner.GCSViews
 					ResetRemoteTakeoffLandingToDefaults();
 					
 					// 显示成功消息
-					CustomMessageBox.Show($"已成功清除所有指令和航点！\n\n共清除了 {waypointCount} 个航点。", "清除完成", 
-						CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
+					// CustomMessageBox.Show($"已成功清除所有指令和航点！\n\n共清除了 {waypointCount} 个航点。", "清除完成", 
+					// 	CustomMessageBox.MessageBoxButtons.OK, CustomMessageBox.MessageBoxIcon.Information);
 				}
 			}
 			catch (Exception ex)
