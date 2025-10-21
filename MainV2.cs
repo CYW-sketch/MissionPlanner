@@ -5516,7 +5516,7 @@ namespace MissionPlanner
                         passivePort = _udpPortA; // 14551
                     }
 
-                    log.Info($"UDP Dual Listen: Active port {activeUdpPort} -> Passive port {passivePort}");
+                    log.Info($"UDP Dual Listen: {activeUdpPort} -> {passivePort}");
 
                     var udp = new MissionPlanner.Comms.UdpSerial();
                     udp.Port = passivePort;
@@ -5598,19 +5598,15 @@ namespace MissionPlanner
                 var activePort = GetCurrentPortInfo();
                 var passivePort = GetPassivePortInfo();
                 
-                log.Info($"=== Quality Status Report ===");
-                log.Info($"Active: {activePort} (Quality: {GetCurrentQuality():0.00})");
-                
+                // 简化质量报告，只显示两个端口的质量信息
                 if (EnableDualListen && _passiveMav != null)
                 {
-                    log.Info($"Passive: {passivePort} (Quality: {_passiveQuality:0.00})");
-                    log.Info($"Threshold: {_qualityThreshold:0.00}, DiffThreshold: {_qualityDifferenceThreshold:0.00}, Window: {_qualityWindowSec}s, MinSwitch: {_minSwitchIntervalSec}s");
+                    log.Info($"UDP Dual Port Quality - Active: {activePort} ({GetCurrentQuality():0.00}) | Passive: {passivePort} ({_passiveQuality:0.00})");
                 }
                 else
                 {
-                    log.Info($"Dual Listen: Disabled");
+                    log.Info($"UDP Single Port Quality - Active: {activePort} ({GetCurrentQuality():0.00})");
                 }
-                log.Info($"=============================");
             }
             catch (Exception ex)
             {
@@ -5802,7 +5798,7 @@ namespace MissionPlanner
                         _lastValidPacket = MainV2.comPort.MAV.lastvalidpacket;
                     }
 
-                    // 检查是否长时间没有收到数据包（超过5秒认为连接断开）
+                    // 检查是否长时间没有收到数据包（超过2秒认为连接断开）
                     if ((DateTime.UtcNow - _lastValidPacket).TotalSeconds > 2)
                     {
                         log.Warn("Connection appears to be lost - no valid packets received");
@@ -5811,11 +5807,22 @@ namespace MissionPlanner
                 }
                 else
                 {
-                    // 连接已断开，尝试重连
-                    if (!string.IsNullOrEmpty(CurrentTcpHost))
+                    // 连接已断开，根据连接类型尝试重连
+                    if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial)
                     {
-                        log.Warn("Connection is closed, attempting reconnect");
-                        AttemptReconnect();
+                        // TCP连接断开，尝试重连到备用TCP地址
+                        if (!string.IsNullOrEmpty(CurrentTcpHost))
+                        {
+                            log.Warn("TCP connection is closed, attempting reconnect");
+                            AttemptReconnect();
+                        }
+                    }
+                    else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                             MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
+                    {
+                        // UDP连接断开，尝试切换到备用UDP端口
+                        log.Warn("UDP connection is closed, attempting to switch to passive port");
+                        AttemptUdpReconnect();
                     }
                 }
             }
@@ -5864,6 +5871,63 @@ namespace MissionPlanner
                 _isReconnecting = false;
             }
         }
+
+        /// <summary>
+        /// 尝试UDP重连（切换到被动端口）
+        /// </summary>
+        private void AttemptUdpReconnect()
+        {
+            if (_isReconnecting)
+                return;
+
+            _isReconnecting = true;
+
+            try
+            {
+                // 检查是否有被动监听可用
+                if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true)
+                {
+                    log.Info("Switching to passive UDP port due to active port failure");
+                    SwitchToPassivePort();
+                }
+                else
+                {
+                    // 如果没有被动监听，尝试重新设置
+                    if (EnableDualListen && _manualConnectedOnce)
+                    {
+                        log.Info("Attempting to restart UDP dual listen");
+                        SetupPassiveListener();
+                        
+                        // 等待一段时间让被动监听建立
+                        System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
+                        {
+                            if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true)
+                            {
+                                log.Info("Passive listener established, switching to passive port");
+                                SwitchToPassivePort();
+                            }
+                            else
+                            {
+                                log.Warn("Failed to establish passive UDP listener");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        log.Warn("No passive UDP listener available for reconnection");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error during UDP reconnect attempt", ex);
+            }
+            finally
+            {
+                _isReconnecting = false;
+            }
+        }
+
 
         /// <summary>
         /// 获取下一个要尝试的TCP地址
@@ -5952,8 +6016,22 @@ namespace MissionPlanner
             if (!_isEnabled || _isManualDisconnect || _isReconnecting)
                 return;
 
-            if (MainV2.comPort?.BaseStream?.IsOpen != true)
+            // 检查UDP连接是否断开
+            if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
+            {
+                if (MainV2.comPort?.BaseStream?.IsOpen != true)
+                {
+                    // UDP连接断开，尝试切换到被动端口
+                    log.Warn("UDP connection lost, attempting to switch to passive port");
+                    AttemptUdpReconnect();
+                    return;
+                }
+            }
+            else if (MainV2.comPort?.BaseStream?.IsOpen != true)
+            {
                 return;
+            }
 
             try
             {
@@ -5983,7 +6061,7 @@ namespace MissionPlanner
                                 MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                             {
                                 // UDP双监听：切换到被动端口
-                                log.Warn($"UDP DUAL SWITCH: Active quality {quality:0.00} < passive quality {passiveQuality:0.00}, switching to passive port");
+                                log.Warn($"UDP Switch: {quality:0.00} -> {passiveQuality:0.00}");
                                 SwitchToPassivePort();
                                 return;
                             }
@@ -6107,7 +6185,7 @@ namespace MissionPlanner
                     return;
                 }
 
-                log.Info($"Switching to passive UDP port: {passivePort}");
+                log.Info($"UDP Switch to: {passivePort}");
 
                 // 断开当前连接
                 if (MainV2.comPort?.BaseStream?.IsOpen == true)
@@ -6135,7 +6213,7 @@ namespace MissionPlanner
                 // 重新设置被动监听（现在原来的主动端口变成被动端口）
                 SetupPassiveListener();
 
-                log.Info($"Successfully switched to passive UDP port: {passivePort}");
+                log.Info($"UDP Switch completed: {passivePort}");
             }
             catch (Exception ex)
             {
