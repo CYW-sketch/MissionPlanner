@@ -1306,6 +1306,72 @@ namespace MissionPlanner
             }
         }
 
+        /// <summary>
+        /// 添加可用的UDP端口选项到下拉菜单
+        /// </summary>
+        private void AddAvailableUdpPorts()
+        {
+            try
+            {
+                // 默认的UDP端口列表
+                var defaultPorts = new[] { "14550", "14551", "14552", "14553", "14554", "14555" };
+                var availablePorts = new List<string>();
+                
+                // 检测每个端口是否可用
+                foreach (var port in defaultPorts)
+                {
+                    if (IsUdpPortAvailable(port))
+                    {
+                        availablePorts.Add($"UDP:{port}");
+                    }
+                }
+                
+                // 如果至少有一个端口可用，添加到下拉菜单
+                if (availablePorts.Count > 0)
+                {
+                    foreach (var port in availablePorts)
+                    {
+                        _connectionControl.CMB_serialport.Items.Add(port);
+                    }
+                }
+                else
+                {
+                    // 如果没有检测到可用端口，添加默认UDP选项
+                    _connectionControl.CMB_serialport.Items.Add("UDP");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 出错时回退到默认UDP选项
+                _connectionControl.CMB_serialport.Items.Add("UDP");
+                log.Warn("Failed to detect UDP ports", ex);
+            }
+        }
+
+        /// <summary>
+        /// 检测UDP端口是否可用（未被占用）
+        /// </summary>
+        private bool IsUdpPortAvailable(string port)
+        {
+            try
+            {
+                if (!int.TryParse(port, out int portNum))
+                    return false;
+                
+                // 尝试绑定UDP端口来检测是否可用
+                using (var udpClient = new UdpClient())
+                {
+                    udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, portNum));
+                    return true;
+                }
+            }
+            catch
+            {
+                // 端口被占用或无法绑定
+                return false;
+            }
+        }
+
         private void MenuFlightData_Click(object sender, EventArgs e)
         {
             MyView.ShowScreen("FlightData");
@@ -2247,6 +2313,8 @@ namespace MissionPlanner
                         AutoConnectManager.Initialize();
                         AutoConnectManager.EnableAutoConnect();
                     }
+                    AutoConnectManager.Initialize();
+                    AutoConnectManager.EnableAutoConnect();
                 });
             }
             catch (Exception ex)
@@ -2322,8 +2390,9 @@ namespace MissionPlanner
                 if (!AutoConnectManager.IsAutoConnecting)
                 {
                     // 手动连接：根据端口类型分别弹窗
-                    var sel = _connectionControl.CMB_serialport.Text;
-                    if (string.Equals(sel, "UDP", StringComparison.OrdinalIgnoreCase))
+                    // 使用comPortName来判断，支持"UDP"或"UDP:端口"格式
+                    if (string.Equals(comPortName, "UDP", StringComparison.OrdinalIgnoreCase) || 
+                        comPortName.StartsWith("UDP:", StringComparison.OrdinalIgnoreCase))
                     {
                         var udpBase = new UdpSerial();
                         try
@@ -5363,7 +5432,7 @@ namespace MissionPlanner
         public bool EnableDualListen { get; set; } = false;
         private bool _manualConnectedOnce = false;
         private const string _udpPortA = "14551";
-        private const string _udpPortB = "14552";
+        private const string _udpPortB = "14550";
 
         /// <summary>
         /// 是否启用自动连接
@@ -5454,7 +5523,23 @@ namespace MissionPlanner
             _qualityReportTimer?.Dispose();
             _qualityReportTimer = new System.Threading.Timer(_ => ReportQualityStatus(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
             
-            log.Info("AutoConnectManager initialized");
+            // 在初始化完成后，如果已经手动建立过连接，且当前为UDP并启用双监听，
+            // 则延迟启动一次被动监听，确保首次手动UDP连接后即可建立双端监听
+            try
+            {
+                if (EnableDualListen && _manualConnectedOnce &&
+                    (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial ||
+                     MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect))
+                {
+                    System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ =>
+                    {
+                        try { SetupPassiveListener(); } catch { }
+                    });
+                }
+            }
+            catch { }
+
+            log.Info("自动连接管理器初始化完成");
         }
 
         private void SetupPassiveListener()
@@ -5472,25 +5557,8 @@ namespace MissionPlanner
                 // 根据当前活跃链接类型（TCP/UDP）选择被动监听的方式
                 if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial)
                 {
-                    string target = GetAlternateHost();
-                    if (string.IsNullOrEmpty(target)) return;
-                    var port = GetPortForHost(target);
-
-                    _passiveTcp = new MissionPlanner.Comms.TcpSerial();
-                    _passiveTcp.Host = target;
-                    _passiveTcp.Port = port;
-                    _passiveTcp.autoReconnect = true;
-
-                    _passiveMav = new MAVLinkInterface { BaseStream = _passiveTcp };
-                    System.Threading.Tasks.Task.Run(() =>
-                    {
-                        try 
-                        { 
-                            _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
-                            SetupPassiveQualityMonitoring();
-                        } 
-                        catch { }
-                    });
+                    // 已禁用：TCP 被动监听，避免在 UDP 使用场景中被 TCP 自动检测/监听干扰
+                    return;
                 }
                 else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                 {
@@ -5516,7 +5584,7 @@ namespace MissionPlanner
                         passivePort = _udpPortA; // 14551
                     }
 
-                    log.Info($"UDP Dual Listen: {activeUdpPort} -> {passivePort}");
+                    log.Info($"UDP双端监听: {activeUdpPort} -> {passivePort}");
 
                     var udp = new MissionPlanner.Comms.UdpSerial();
                     udp.Port = passivePort;
@@ -5572,7 +5640,7 @@ namespace MissionPlanner
                         // 定期报告被动监听质量
                         if (DateTime.Now - _lastQualityReport > TimeSpan.FromSeconds(5))
                         {
-                            log.Info($"Passive Quality Monitor: RX={v.rx}, Lost={v.lost}, Quality={_passiveQuality:0.00}");
+                            log.Info($"被动端质量检测: RX={v.rx}, Lost={v.lost}, Quality={_passiveQuality:0.00}");
                             _lastQualityReport = DateTime.Now;
                         }
                     });
@@ -5598,11 +5666,20 @@ namespace MissionPlanner
                 var activePort = GetCurrentPortInfo();
                 var passivePort = GetPassivePortInfo();
                 
-                // 简化质量报告，只显示两个端口的质量信息
-                if (EnableDualListen && _passiveMav != null)
+                // 获取被动端口的质量信息 - 检查被动监听是否已启动并正在接收数据
+                bool passiveConnected = _passiveMav != null && _passiveMav.BaseStream?.IsOpen == true && _passiveQualitySub != null;
+                
+                // 如果启用了双监听且被动端口已连接，显示两个端口的质量
+                if (EnableDualListen && passiveConnected)
                 {
                     log.Info($"UDP Dual Port Quality - Active: {activePort} ({GetCurrentQuality():0.00}) | Passive: {passivePort} ({_passiveQuality:0.00})");
                 }
+                // 如果启用了双监听但被动端口未连接，显示连接状态
+                else if (EnableDualListen)
+                {
+                    log.Info($"UDP Single Port Quality - Active: {activePort} ({GetCurrentQuality():0.00}) | Passive: {passivePort} (Not Connected)");
+                }
+                // 单端口模式
                 else
                 {
                     log.Info($"UDP Single Port Quality - Active: {activePort} ({GetCurrentQuality():0.00})");
@@ -5802,7 +5879,7 @@ namespace MissionPlanner
                     if ((DateTime.UtcNow - _lastValidPacket).TotalSeconds > 2)
                     {
                         log.Warn("Connection appears to be lost - no valid packets received");
-                        AttemptReconnect();
+                        AttemptUdpReconnect();
                     }
                 }
                 else
@@ -6065,17 +6142,10 @@ namespace MissionPlanner
                                 SwitchToPassivePort();
                                 return;
                             }
+                            // 禁用：TCP 双监听切换逻辑，避免影响UDP场景
                             else
                             {
-                                // TCP双监听：切换到备用地址
-                                string target = GetAlternateHost();
-                                if (!string.IsNullOrEmpty(target))
-                                {
-                                    string port = GetPortForHost(target);
-                                    log.Warn($"TCP DUAL SWITCH: Active quality {quality:0.00} < passive quality {passiveQuality:0.00}, switching to {target}:{port}");
-                                    AttemptReconnect();
-                                    return;
-                                }
+                                return;
                             }
                         }
                     }
@@ -6093,19 +6163,19 @@ namespace MissionPlanner
                     }
                 }
 
-                if (quality < _qualityThreshold)
-                {
-                    if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds < _minSwitchIntervalSec)
-                        return;
+                // if (quality < _qualityThreshold)
+                // {
+                //     if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds < _minSwitchIntervalSec)
+                //         return;
 
-                    string target = GetAlternateHost();
-                    if (!string.IsNullOrEmpty(target))
-                    {
-                        string port = GetPortForHost(target);
-                        log.Warn($"Link quality {quality:0.00} < threshold {_qualityThreshold:0.00}, switching to {target}:{port}");
-                        AttemptReconnect();
-                    }
-                }
+                //     string target = GetAlternateHost();
+                //     if (!string.IsNullOrEmpty(target))
+                //     {
+                //         string port = GetPortForHost(target);
+                //         log.Warn($"Link quality {quality:0.00} < threshold {_qualityThreshold:0.00}, switching to {target}:{port}");
+                //         AttemptReconnect();
+                //     }
+                // }
             }
             catch (Exception ex)
             {
@@ -6192,6 +6262,17 @@ namespace MissionPlanner
                 {
                     MainV2.comPort.Close();
                 }
+
+                // 在占用被动端口作为新的主动端口之前，先关闭被动监听以释放端口
+                try
+                {
+                    if (_passiveMav != null)
+                    {
+                        try { _passiveMav.Close(); } catch {}
+                        try { _passiveMav.BaseStream?.Close(); } catch {}
+                    }
+                }
+                catch {}
 
                 // 创建新的UDP连接
                 var udp = new MissionPlanner.Comms.UdpSerial();

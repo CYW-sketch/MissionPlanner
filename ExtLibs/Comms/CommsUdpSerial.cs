@@ -100,6 +100,12 @@ namespace MissionPlanner.Comms
 
         public void Open()
         {
+            // 确保client对象不为null
+            if (client == null)
+            {
+                client = new UdpClient();
+            }
+            
             if (client.Client.Connected || IsOpen)
             {
                 log.Info("UDPSerial socket already open");
