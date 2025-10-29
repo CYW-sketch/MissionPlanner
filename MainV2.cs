@@ -2134,6 +2134,17 @@ namespace MissionPlanner
                     return;
                 }
 
+                // 手动UDP连接成功后：若启用双监听，则启动被动监听
+                try
+                {
+                    if (AutoConnectManager.IsEnabled && AutoConnectManager.EnableDualListen && !AutoConnectManager.IsAutoConnecting &&
+                        (comPort.BaseStream is UdpSerial || comPort.BaseStream is UdpSerialConnect))
+                    {
+                        AutoConnectManager.TriggerPassiveListenIfNeeded();
+                    }
+                }
+                catch { }
+
                 //158	MAV_COMP_ID_PERIPHERAL	Generic autopilot peripheral component ID. Meant for devices that do not implement the parameter microservice.
                 if (getparams && comPort.MAV.compid != (byte)MAVLink.MAV_COMPONENT.MAV_COMP_ID_PERIPHERAL)
                 {
@@ -5521,7 +5532,7 @@ namespace MissionPlanner
             
             // 设置定期质量报告定时器（每30秒报告一次）
             _qualityReportTimer?.Dispose();
-            _qualityReportTimer = new System.Threading.Timer(_ => ReportQualityStatus(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            _qualityReportTimer = new System.Threading.Timer(_ => ReportQualityStatus(), null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
             
             // 在初始化完成后，如果已经手动建立过连接，且当前为UDP并启用双监听，
             // 则延迟启动一次被动监听，确保首次手动UDP连接后即可建立双端监听
@@ -5540,6 +5551,23 @@ namespace MissionPlanner
             catch { }
 
             log.Info("自动连接管理器初始化完成");
+        }
+
+        /// <summary>
+        /// 在需要时（手动UDP连接完成后）触发被动监听的建立
+        /// </summary>
+        public void TriggerPassiveListenIfNeeded()
+        {
+            try
+            {
+                if (EnableDualListen && _manualConnectedOnce &&
+                    (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial ||
+                     MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect))
+                {
+                    SetupPassiveListener();
+                }
+            }
+            catch { }
         }
 
         private void SetupPassiveListener()

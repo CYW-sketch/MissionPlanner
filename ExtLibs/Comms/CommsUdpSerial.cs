@@ -17,6 +17,10 @@ namespace MissionPlanner.Comms
     {
         private static readonly ILog log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
+        // 全局注册：记录本进程内已绑定的本地端口，便于在手动连接前释放，手动断开时统一释放
+        private static readonly object _registrySync = new object();
+        private static readonly Dictionary<int, List<UdpSerial>> _portToInstances = new Dictionary<int, List<UdpSerial>>();
+
         public readonly List<IPEndPoint> EndPointList = new List<IPEndPoint>();
 
         private bool _isopen;
@@ -106,7 +110,8 @@ namespace MissionPlanner.Comms
                 client = new UdpClient();
             }
             
-            if (client.Client.Connected || IsOpen)
+            // 防御式判空：client 或 client.Client 可能因上一次 Close()/Dispose() 为 null
+            if (((client != null && client.Client != null) && client.Client.Connected) || IsOpen)
             {
                 log.Info("UDPSerial socket already open");
                 return;
@@ -135,48 +140,39 @@ namespace MissionPlanner.Comms
             {
             }
 
-            client = new UdpClient(int.Parse(Port));
+            // 在绑定前，确保本进程内相同端口的其它 UDP 已释放（满足“手动连接前先检查目标端口是否绑定”）
+            var localPort = int.Parse(Port);
+            CloseExistingOnPort(localPort);
 
-            while (true)
-            {
-                Thread.Sleep(500);
+            client = new UdpClient(localPort);
 
-                if (CancelConnect)
-                {
-                    try
-                    {
-                        client.Close();
-                    }
-                    catch
-                    {
-                    }
+            // 注册到全局映射
+            RegisterInstance(localPort, this);
 
-                    return;
-                }
+            // 绑定成功后即标记为已打开，避免上层误判连接失败
+            _isopen = true;
 
-                if (BytesToRead > 0)
-                    break;
-            }
-
-            if (BytesToRead == 0)
-                return;
-
+            // 非阻塞地尝试获取远端端点（可选）
             try
             {
-                // reset any previous connection
-                RemoteIpEndPoint = new IPEndPoint(IPAddress.Any, 0);
-
-                client.Receive(ref RemoteIpEndPoint);
-                log.InfoFormat("UDPSerial connecting to {0} : {1}", RemoteIpEndPoint.Address, RemoteIpEndPoint.Port);
-                EndPointList.Add(RemoteIpEndPoint);
-                _isopen = true;
+                if (client.Available > 0)
+                {
+                    RemoteIpEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    var b = client.Receive(ref RemoteIpEndPoint);
+                    EndPointList.Add(RemoteIpEndPoint);
+                    // 将已读取的数据放回读缓存，避免丢包
+                    lock (rbuffer)
+                    {
+                        var pos = rbuffer.Position;
+                        rbuffer.Seek(0, SeekOrigin.End);
+                        rbuffer.Write(b, 0, b.Length);
+                        rbuffer.Seek(pos, SeekOrigin.Begin);
+                    }
+                    log.InfoFormat("UDPSerial connecting to {0} : {1}", RemoteIpEndPoint.Address, RemoteIpEndPoint.Port);
+                }
             }
-            catch (Exception ex)
+            catch
             {
-                if (client != null && client.Client.Connected) client.Close();
-                log.Info(ex.ToString());
-                //CustomMessageBox.Show("Please check your Firewall settings\nPlease try running this command\n1.    Run the following command in an elevated command prompt to disable Windows Firewall temporarily:\n    \nNetsh advfirewall set allprofiles state off\n    \nNote: This is just for test; please turn it back on with the command 'Netsh advfirewall set allprofiles state on'.\n", "Error");
-                throw new Exception("The socket/UDPSerial is closed " + ex);
             }
         }
 
@@ -330,6 +326,13 @@ namespace MissionPlanner.Comms
         public void Close()
         {
             _isopen = false;
+            try
+            {
+                // 从全局映射注销
+                UnregisterInstanceSafe();
+            }
+            catch { }
+
             if (client != null) client.Close();
 
             client = new UdpClient();
@@ -360,6 +363,85 @@ namespace MissionPlanner.Comms
             }
 
             // free native resources
+        }
+
+        // —— 端口占用管理 ——
+        private static void RegisterInstance(int port, UdpSerial instance)
+        {
+            lock (_registrySync)
+            {
+                if (!_portToInstances.TryGetValue(port, out var list))
+                {
+                    list = new List<UdpSerial>();
+                    _portToInstances[port] = list;
+                }
+                if (!list.Contains(instance))
+                    list.Add(instance);
+            }
+        }
+
+        private void UnregisterInstanceSafe()
+        {
+            try
+            {
+                if (int.TryParse(Port, out var p))
+                {
+                    lock (_registrySync)
+                    {
+                        if (_portToInstances.TryGetValue(p, out var list))
+                        {
+                            list.Remove(this);
+                            if (list.Count == 0)
+                                _portToInstances.Remove(p);
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public static void CloseExistingOnPort(int port)
+        {
+            List<UdpSerial> toClose = null;
+            lock (_registrySync)
+            {
+                if (_portToInstances.TryGetValue(port, out var list))
+                {
+                    toClose = new List<UdpSerial>(list);
+                }
+            }
+
+            if (toClose != null)
+            {
+                foreach (var inst in toClose)
+                {
+                    try { inst.Close(); } catch { }
+                }
+            }
+        }
+
+        public static void ReleaseAll()
+        {
+            List<UdpSerial> all;
+            lock (_registrySync)
+            {
+                var tmp = new List<UdpSerial>();
+                foreach (var kv in _portToInstances)
+                {
+                    tmp.AddRange(kv.Value);
+                }
+                all = tmp;
+            }
+
+            foreach (var inst in all)
+            {
+                try { inst.Close(); } catch { }
+            }
+
+            lock (_registrySync)
+            {
+                _portToInstances.Clear();
+            }
         }
     }
 }

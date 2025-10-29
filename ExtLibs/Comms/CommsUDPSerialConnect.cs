@@ -16,6 +16,9 @@ namespace MissionPlanner.Comms
     public class UdpSerialConnect : CommsBase, ICommsSerial, IDisposable
     {
         private static readonly ILog log = LogManager.GetLogger(typeof(UdpSerialConnect));
+        // 全局释放辅助（用于手动断开后释放所有udp）
+        private static readonly object _allSync = new object();
+        private static readonly System.Collections.Generic.HashSet<UdpSerialConnect> _all = new System.Collections.Generic.HashSet<UdpSerialConnect>();
         /// <summary>
         /// set hostEndPoint as well, if injecting
         /// </summary>
@@ -32,6 +35,7 @@ namespace MissionPlanner.Comms
         {
             Port = "14550";
             ReadTimeout = 500;
+            lock (_allSync) { _all.Add(this); }
         }
 
         public string Port { get; set; }
@@ -358,9 +362,24 @@ namespace MissionPlanner.Comms
                 // dispose managed resources
                 Close();
                 client = null;
+                lock (_allSync) { _all.Remove(this); }
             }
 
             // free native resources
+        }
+
+        public static void ReleaseAll()
+        {
+            System.Collections.Generic.List<UdpSerialConnect> list;
+            lock (_allSync)
+            {
+                list = new System.Collections.Generic.List<UdpSerialConnect>(_all);
+            }
+            foreach (var s in list)
+            {
+                try { s.Close(); } catch { }
+            }
+            lock (_allSync) { _all.Clear(); }
         }
     }
 }
