@@ -794,17 +794,23 @@ namespace MissionPlanner
 
                         if (hbseen)
                         {
-                            PRsender.doWorkArgs.ErrorMessage = Strings.Only1Hb;
-                            throw new Exception(Strings.Only1HbD + plaintxtlinebuffer.Aggregate((a, b) => a + "\r\n" + b));
+                                PRsender.doWorkArgs.ErrorMessage = Strings.Only1Hb;
+                                string moreinfo = "";
+                                if (plaintxtlinebuffer.Count > 0)
+                                    moreinfo = plaintxtlinebuffer.Aggregate((a, b) => a + "\r\n" + b);
+                                throw new Exception(Strings.Only1HbD + moreinfo);
                         }
                         else
                         {
-                            PRsender.doWorkArgs.ErrorMessage = "No Heartbeat Packets Received";
-                            throw new TimeoutException(@"Can not establish a connection
-
-No Mavlink Heartbeat Packets where read from this port - Verify Baud Rate and setup
-Mission Planner waits for 2 valid heartbeat packets before connecting
-" + plaintxtlinebuffer.Aggregate((a, b) => a + "\r\n" + b));
+                                PRsender.doWorkArgs.ErrorMessage = "No Heartbeat Packets Received";
+                                string moreinfo2 = "";
+                                if (plaintxtlinebuffer.Count > 0)
+                                    moreinfo2 = plaintxtlinebuffer.Aggregate((a, b) => a + "\r\n" + b);
+                                throw new TimeoutException(@"Can not establish a connection
+    
+    No Mavlink Heartbeat Packets where read from this port - Verify Baud Rate and setup
+    Mission Planner waits for 2 valid heartbeat packets before connecting
+    " + moreinfo2);
                         }
                     }
 

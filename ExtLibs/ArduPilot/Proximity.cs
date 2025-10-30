@@ -228,18 +228,13 @@ namespace MissionPlanner.Utilities
             {
                 lock (this)
                 {
-                    for (int a = 0; a < _dists.Count; a++)
+                    // 反向遍历，避免移除元素时索引越界
+                    for (int a = _dists.Count - 1; a >= 0; a--)
                     {
                         var expireat = _dists[a].ExpireTime;
-
                         if (expireat < DateTime.Now)
                         {
-                            // remove it
                             _dists.RemoveAt(a);
-                            // make sure we dont skip an element
-                            a--;
-                            // move on
-                            continue;
                         }
                     }
                 }

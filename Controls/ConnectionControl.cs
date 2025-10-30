@@ -74,6 +74,11 @@ namespace MissionPlanner.Controls
             e.DrawFocusRectangle();
         }
 
+        private bool _paramLoading = false; // 增加参数读取状态锁
+
+        // 新增：拦截sysid切换请求
+        private bool _allowSysidSwitch => !_paramLoading; // 拉参数期间不允许切换
+
         public void UpdateSysIDS()
         {
             cmb_sysid.SelectedIndexChanged -= CMB_sysid_SelectedIndexChanged;
@@ -86,6 +91,7 @@ namespace MissionPlanner.Controls
 
             foreach (var port in MainV2.Comports.ToArray())
             {
+                if (port == null || port.MAVlist == null) continue; // 防止空指针
                 var list = port.MAVlist.GetRawIDS();
 
                 foreach (int item in list)
@@ -122,6 +128,15 @@ namespace MissionPlanner.Controls
 
         private void CMB_sysid_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // 新增安全限制
+            if (!_allowSysidSwitch)
+            {
+                MessageBox.Show("请等待当前端口拉取参数完成后再切换 sysid。", "操作被拒绝", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                // 强制切回原选项
+                UpdateSysIDS();
+                return;
+            }
+
             if (cmb_sysid.SelectedItem == null)
                 return;
 
@@ -135,14 +150,15 @@ namespace MissionPlanner.Controls
                     MainV2.comPort = port;
                     MainV2.comPort.sysidcurrent = temp.sysid;
                     MainV2.comPort.compidcurrent = temp.compid;
-
-                    if (MainV2.comPort.MAV.param.TotalReceived < MainV2.comPort.MAV.param.TotalReported && 
-                        /*MainV2.comPort.MAV.compid == (byte)MAVLink.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1 && */
-                        !(Control.ModifierKeys == Keys.Control))
-                        MainV2.comPort.getParamList();
-
+                    // 取消切换时自动拉参数逻辑，只主动连接那次拉取参数
+                    //_paramLoading = true;
+                    //if (MainV2.comPort.MAV.param.TotalReceived < MainV2.comPort.MAV.param.TotalReported &&
+                    //    /*MainV2.comPort.MAV.compid == (byte)MAVLink.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1 && */
+                    //    !(Control.ModifierKeys == Keys.Control))
+                    //{
+                    //    MainV2.comPort.getParamList();
+                    //}
                     MainV2.View.Reload();
-
                     // 通知自动连接管理器：主动端口已改变（用于双监听时主动/被动切换）
                     try { MainV2.AutoConnectManager?.OnActivePortChanged(oldActive, MainV2.comPort); } catch { }
                 }
@@ -183,5 +199,8 @@ namespace MissionPlanner.Controls
                 }
             }
         }
+
+        // 拉取参数接口完成时，记得重置_paramLoading=false。建议在参数拉取完成事件中补充：
+        //    _paramLoading = false;
     }
 }

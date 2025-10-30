@@ -2354,6 +2354,8 @@ namespace MissionPlanner
 
             // save config
             SaveConfig();
+            if (comPort.BaseStream.IsOpen)
+                _connectionControl.UpdateSysIDS();
         }
 
         private void Connect()
@@ -3557,14 +3559,14 @@ namespace MissionPlanner
                     }
 
                     // if not connected or busy, sleep and loop
-                    if (!comPort.BaseStream.IsOpen || comPort.giveComport == true)
+                    if (comPort == null || comPort.BaseStream == null || !comPort.BaseStream.IsOpen || comPort.giveComport == true)
                     {
                         if (!comPort.BaseStream.IsOpen)
                         {
                             // check if other ports are still open
                             foreach (var port in Comports)
                             {
-                                if (port.BaseStream.IsOpen)
+                                if (port != null && port.BaseStream != null && port.BaseStream.IsOpen)
                                 {
                                     Console.WriteLine("Main comport shut, swapping to other mav");
                                     comPort = port;
@@ -3579,6 +3581,10 @@ namespace MissionPlanner
                     // read the interfaces
                     foreach (var port in Comports.ToArray())
                     {
+                         if (port == null || port.BaseStream == null)
+                        {
+                            continue; // 如果端口或流无效，则跳过本次循环
+                        }
                         if (!port.BaseStream.IsOpen)
                         {
                             // skip primary interface
