@@ -125,6 +125,7 @@ namespace MissionPlanner.Controls
             if (cmb_sysid.SelectedItem == null)
                 return;
 
+            var oldActive = MainV2.comPort;
             var temp = (port_sysid)cmb_sysid.SelectedItem;
 
             foreach (var port in MainV2.Comports)
@@ -141,6 +142,9 @@ namespace MissionPlanner.Controls
                         MainV2.comPort.getParamList();
 
                     MainV2.View.Reload();
+
+                    // 通知自动连接管理器：主动端口已改变（用于双监听时主动/被动切换）
+                    try { MainV2.AutoConnectManager?.OnActivePortChanged(oldActive, MainV2.comPort); } catch { }
                 }
             }
         }

@@ -3458,7 +3458,7 @@ namespace MissionPlanner
                         // enumerate each link
                         foreach (var port in Comports.ToArray())
                         {
-                            if (!port.BaseStream.IsOpen)
+                            if (port == null || port.BaseStream == null || !port.BaseStream.IsOpen)
                                 continue;
 
                             // poll for params at heartbeat interval - primary mav on this port only
@@ -5569,15 +5569,18 @@ namespace MissionPlanner
             }
             catch { }
         }
-
+        //更新sysid下拉菜单端口选项
+        public static void UpdateSysidPortOptions()
+        {
+            //获取当前sysid下拉菜单
+            
+        }
         private void SetupPassiveListener()
         {
             try
             {
                 // 清理旧的
-                try { _passiveTcp?.Close(); } catch {}
-                _passiveMav = null;
-                _passiveTcp = null;
+                TeardownPassiveListener();
 
                 if (!EnableDualListen || !_manualConnectedOnce)
                     return;
@@ -5614,21 +5617,55 @@ namespace MissionPlanner
 
                     log.Info($"UDP双端监听: {activeUdpPort} -> {passivePort}");
 
-                    var udp = new MissionPlanner.Comms.UdpSerial();
-                    udp.Port = passivePort;
-                    udp.SuppressPrompts = true;
+                    // 优先复用已有的同端口连接（通常由 AutoConnect 建立，避免端口占用冲突）
+                    var existing = MainV2.Comports.FirstOrDefault(m =>
+                        (m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort) ||
+                        (m.BaseStream is MissionPlanner.Comms.UdpSerialConnect uc && uc.Port == passivePort));
 
-                    _passiveMav = new MAVLinkInterface { BaseStream = udp };
-                    System.Threading.Tasks.Task.Run(() =>
+                    if (existing != null)
                     {
-                        try 
-                        { 
-                            udp.Open(); 
-                            _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
-                            SetupPassiveQualityMonitoring();
-                        } 
-                        catch { }
-                    });
+                        _passiveMav = existing;
+                        SetupPassiveQualityMonitoring();
+                        // 已存在于 Comports，仅刷新下拉
+                        try { MainV2._connectionControl?.UpdateSysIDS(); } catch { }
+                    }
+                    else
+                    {
+                        var udp = new MissionPlanner.Comms.UdpSerial();
+                        udp.Port = passivePort;
+                        udp.SuppressPrompts = true;
+
+                        _passiveMav = new MAVLinkInterface { BaseStream = udp };
+                        System.Threading.Tasks.Task.Run(() =>
+                        {
+                            try 
+                            { 
+                                udp.Open(); 
+                                _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
+                                SetupPassiveQualityMonitoring();
+
+                                // 将被动端口加入到 Comports 中，并刷新 sysid 下拉菜单以显示两个端口
+                                try
+                                {
+                                    MainV2.instance.BeginInvoke((Action)delegate
+                                    {
+                                        try
+                                        {
+                                            MainV2.Comports.Add(_passiveMav);
+                                            try { MainV2.Comports = MainV2.Comports.Distinct().ToList(); } catch { }
+                                            MainV2._connectionControl?.UpdateSysIDS();
+                                        }
+                                        catch { }
+                                    });
+                                }
+                                catch { }
+                            } 
+                            catch (Exception ex)
+                            {
+                                log.Warn("Failed to open passive UDP port", ex);
+                            }
+                        });
+                    }
                 }
                 else
                 {
@@ -5639,6 +5676,38 @@ namespace MissionPlanner
             catch (Exception ex)
             {
                 log.Warn("Passive listener failed to start", ex);
+            }
+        }
+
+        /// <summary>
+        /// 关闭并移除被动监听，同时从 Comports 中删除并刷新 sysid 下拉
+        /// </summary>
+        private void TeardownPassiveListener()
+        {
+            try
+            {
+                try { _passiveQualitySub?.Dispose(); } catch { }
+                try { _passiveTcp?.Close(); } catch { }
+                try { _passiveMav?.Close(); } catch { }
+
+                if (_passiveMav != null)
+                {
+                    try
+                    {
+                        MainV2.instance?.BeginInvoke((Action)delegate
+                        {
+                            try { MainV2.Comports.Remove(_passiveMav); } catch { }
+                            MainV2._connectionControl?.UpdateSysIDS();
+                        });
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            finally
+            {
+                _passiveMav = null;
+                _passiveTcp = null;
             }
         }
 
@@ -5678,6 +5747,59 @@ namespace MissionPlanner
             catch (Exception ex)
             {
                 log.Warn("Failed to setup passive quality monitoring", ex);
+            }
+        }
+
+        /// <summary>
+        /// 当用户通过 sysid 切换主动端口时调用：在双监听下交换主动/被动角色
+        /// </summary>
+        /// <param name="oldActive">切换前的主动端口</param>
+        /// <param name="newActive">切换后的主动端口（MainV2.comPort）</param>
+        public void OnActivePortChanged(MAVLinkInterface oldActive, MAVLinkInterface newActive)
+        {
+            try
+            {
+                if (!EnableDualListen)
+                    return;
+
+                // 重新绑定主动链路质量订阅到 newActive
+                try
+                {
+                    _qualitySub?.Dispose();
+                    if (newActive != null)
+                    {
+                        _qualitySub = System.Reactive.Linq.Observable
+                            .CombineLatest(
+                                newActive.WhenPacketReceived.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                                newActive.WhenPacketLost.Buffer(TimeSpan.FromSeconds(_qualityWindowSec), TimeSpan.FromSeconds(1)).Select(xs => xs.Sum()),
+                                (rx, lost) => new { rx, lost })
+                            .Subscribe(v =>
+                            {
+                                double denom = v.rx + v.lost;
+                                double quality = denom <= 0 ? 0 : v.rx / denom;
+                                EvaluateQualityAndMaybeSwitch(quality);
+                            });
+                    }
+                }
+                catch { }
+
+                // 若用户选中了当前的被动端口，则交换角色：原主动 -> 被动
+                if (_passiveMav == newActive)
+                {
+                    _passiveMav = oldActive;
+                    SetupPassiveQualityMonitoring();
+                    _lastSwitchUtc = DateTime.UtcNow;
+                    log.Info("Active/Passive swapped due to sysid selection");
+                }
+                else
+                {
+                    // 如果不是选中被动端，确保仍然保持被动监听存在于另一端
+                    try { SetupPassiveListener(); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Warn("OnActivePortChanged failed", ex);
             }
         }
 
@@ -5832,9 +5954,7 @@ namespace MissionPlanner
             _qualityReportTimer?.Dispose();
             
             // 清理被动监听
-            try { _passiveTcp?.Close(); } catch {}
-            _passiveMav = null;
-            _passiveTcp = null;
+            TeardownPassiveListener();
             
             log.Info("AutoConnectManager disabled");
         }
@@ -5860,9 +5980,7 @@ namespace MissionPlanner
             log.Info("Marked as manual disconnect");
 
             // 关闭被动监听以释放资源
-            try { _passiveTcp?.Close(); } catch {}
-            _passiveMav = null;
-            _passiveTcp = null;
+            TeardownPassiveListener();
         }
 
         /// <summary>
