@@ -2310,20 +2310,20 @@ namespace MissionPlanner
                     this.MenuConnect.Image = displayicons.disconnect;
                     
                     // 如果是TCP连接，初始化自动连接管理器
-                    if (comPort.BaseStream is TcpSerial)
-                    {
-                        // 检测当前连接的TCP地址
-                        var tcpSerial = comPort.BaseStream as TcpSerial;
-                        if (!string.IsNullOrEmpty(tcpSerial.Host))
-                        {
-                            // 设置当前TCP地址到自动连接管理器
-                            AutoConnectManager.CurrentTcpHost = tcpSerial.Host;
-                            log.Info($"Detected current TCP host: {tcpSerial.Host}");
-                        }
+                    // if (comPort.BaseStream is TcpSerial)
+                    // {
+                    //     // 检测当前连接的TCP地址
+                    //     var tcpSerial = comPort.BaseStream as TcpSerial;
+                    //     if (!string.IsNullOrEmpty(tcpSerial.Host))
+                    //     {
+                    //         // 设置当前TCP地址到自动连接管理器
+                    //         AutoConnectManager.CurrentTcpHost = tcpSerial.Host;
+                    //         log.Info($"Detected current TCP host: {tcpSerial.Host}");
+                    //     }
                         
-                        AutoConnectManager.Initialize();
-                        AutoConnectManager.EnableAutoConnect();
-                    }
+                    //     AutoConnectManager.Initialize();
+                    //     AutoConnectManager.EnableAutoConnect();
+                    // }
                     AutoConnectManager.Initialize();
                     AutoConnectManager.EnableAutoConnect();
                 });
@@ -5570,7 +5570,7 @@ namespace MissionPlanner
                     (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial ||
                      MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect))
                 {
-                    SetupPassiveListener();
+                    // SetupPassiveListener();
                 }
             }
             catch { }
@@ -5650,16 +5650,21 @@ namespace MissionPlanner
                                 _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
                                 SetupPassiveQualityMonitoring();
 
-                                // 将被动端口加入到 Comports 中，并刷新 sysid 下拉菜单以显示两个端口
+                                // 优化：后台线程处理去重，UI线程触发合并刷新
                                 try
                                 {
+                                    // 后台线程生成新列表，避免UI阻塞
+                                    var newComports = MainV2.Comports.Append(_passiveMav).Distinct().ToList();
+
                                     MainV2.instance.BeginInvoke((Action)delegate
                                     {
                                         try
                                         {
-                                            MainV2.Comports.Add(_passiveMav);
-                                            try { MainV2.Comports = MainV2.Comports.Distinct().ToList(); } catch { }
+                                            MainV2.Comports = newComports;
                                             MainV2._connectionControl?.UpdateSysIDS();
+                                            // 强制HUD主视图重绘（如有需要，可以具体到FlightData/myhud等）
+                                            if (GCSViews.FlightData.myhud != null)
+                                                GCSViews.FlightData.myhud.Invalidate();
                                         }
                                         catch { }
                                     });
