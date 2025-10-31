@@ -40,30 +40,7 @@ namespace MissionPlanner.Controls
             cmb_Baud.Enabled = !isConnected;
             cmb_Connection.Enabled = !isConnected;
 
-            // 如果是 UDP 连接且刚建立连接，延迟刷新 sysid 列表，等待心跳数据到达
-            if (isConnected && MainV2.comPort != null && 
-                (MainV2.comPort.BaseStream is UdpSerial || MainV2.comPort.BaseStream is UdpSerialConnect))
-            {
-                // 先立即刷新一次（显示已连接的）
-                UpdateSysIDS();
-                
-                // 延迟刷新，等待心跳数据和被动监听建立完成（2.5秒后刷新，确保被动监听也启动完成）
-                System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
-                {
-                    if (this.IsHandleCreated && !this.IsDisposed)
-                    {
-                        try
-                        {
-                            this.BeginInvoke(new Action(() => UpdateSysIDS()));
-                        }
-                        catch { }
-                    }
-                });
-            }
-            else
-            {
-                UpdateSysIDS();
-            }
+            UpdateSysIDS();
         }
 
         private void ConnectionControl_MouseClick(object sender, MouseEventArgs e)
@@ -97,19 +74,12 @@ namespace MissionPlanner.Controls
             e.DrawFocusRectangle();
         }
 
-        private bool _paramLoading = false; // 增加参数读取状态锁
-
-        // 新增：拦截sysid切换请求
-        private bool _allowSysidSwitch => !_paramLoading; // 拉参数期间不允许切换
-
         public void UpdateSysIDS()
         {
-            // 确保在 UI 线程上执行
-            if (this.InvokeRequired)
-            {
-                this.BeginInvoke(new Action(() => UpdateSysIDS()));
+            if (cmb_sysid == null)
                 return;
-            }
+            if (MainV2.Comports == null)
+                return;
 
             cmb_sysid.SelectedIndexChanged -= CMB_sysid_SelectedIndexChanged;
 
@@ -121,8 +91,11 @@ namespace MissionPlanner.Controls
 
             foreach (var port in MainV2.Comports.ToArray())
             {
-                if (port == null || port.MAVlist == null) continue; // 防止空指针
+                if (port == null || port.MAVlist == null)
+                    continue;
                 var list = port.MAVlist.GetRawIDS();
+                if (list == null)
+                    continue;
 
                 foreach (int item in list)
                 {
@@ -134,7 +107,7 @@ namespace MissionPlanner.Controls
 
                     var idx = cmb_sysid.Items.Add(temp);
 
-                    if (temp.port == MainV2.comPort && temp.sysid == MainV2.comPort.sysidcurrent && temp.compid == MainV2.comPort.compidcurrent)
+                    if (MainV2.comPort != null && temp.port == MainV2.comPort && temp.sysid == MainV2.comPort.sysidcurrent && temp.compid == MainV2.comPort.compidcurrent)
                     {
                         selectidx = idx;
                     }
@@ -158,15 +131,6 @@ namespace MissionPlanner.Controls
 
         private void CMB_sysid_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // 新增安全限制
-            if (!_allowSysidSwitch)
-            {
-                MessageBox.Show("请等待当前端口拉取参数完成后再切换 sysid。", "操作被拒绝", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                // 强制切回原选项
-                UpdateSysIDS();
-                return;
-            }
-
             if (cmb_sysid.SelectedItem == null)
                 return;
 
@@ -180,15 +144,14 @@ namespace MissionPlanner.Controls
                     MainV2.comPort = port;
                     MainV2.comPort.sysidcurrent = temp.sysid;
                     MainV2.comPort.compidcurrent = temp.compid;
-                    // 取消切换时自动拉参数逻辑，只主动连接那次拉取参数
-                    //_paramLoading = true;
-                    //if (MainV2.comPort.MAV.param.TotalReceived < MainV2.comPort.MAV.param.TotalReported &&
-                    //    /*MainV2.comPort.MAV.compid == (byte)MAVLink.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1 && */
-                    //    !(Control.ModifierKeys == Keys.Control))
-                    //{
-                    //    MainV2.comPort.getParamList();
-                    //}
+
+                    // if (MainV2.comPort.MAV.param.TotalReceived < MainV2.comPort.MAV.param.TotalReported && 
+                    //     /*MainV2.comPort.MAV.compid == (byte)MAVLink.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1 && */
+                    //     !(Control.ModifierKeys == Keys.Control))
+                    //     MainV2.comPort.getParamList();
+
                     MainV2.View.Reload();
+
                     // 通知自动连接管理器：主动端口已改变（用于双监听时主动/被动切换）
                     try { MainV2.AutoConnectManager?.OnActivePortChanged(oldActive, MainV2.comPort); } catch { }
                 }
@@ -197,6 +160,8 @@ namespace MissionPlanner.Controls
 
         private void cmb_sysid_Format(object sender, ListControlConvertEventArgs e)
         {
+            if (e?.Value == null)
+                return;
             var temp = (port_sysid)e.Value;
             MAVLink.MAV_COMPONENT compid = (MAVLink.MAV_COMPONENT)temp.compid;
             string mavComponentHeader = "MAV_COMP_ID_";
@@ -204,6 +169,8 @@ namespace MissionPlanner.Controls
 
             foreach (var port in MainV2.Comports)
             {
+                if (port == null)
+                    continue;
                 if (port == temp.port)
                 {
                     if (compid == (MAVLink.MAV_COMPONENT)1)
@@ -215,7 +182,7 @@ namespace MissionPlanner.Controls
                     {
                         //use name from enum if it exists, use the component ID otherwise
                         mavComponentString = compid.ToString();
-                        if (mavComponentString.Length > mavComponentHeader.Length)
+                        if (!string.IsNullOrEmpty(mavComponentString) && mavComponentString.Length > mavComponentHeader.Length)
                         {
                             //remove "MAV_COMP_ID_" header
                             mavComponentString = mavComponentString.Remove(0, mavComponentHeader.Length);
@@ -225,12 +192,10 @@ namespace MissionPlanner.Controls
                             mavComponentString =
                                 temp.compid + " " + temp.port.MAVlist[temp.sysid, temp.compid].VersionString;
                     }
-                    e.Value = temp.port.BaseStream.PortName + "-" + ((int)temp.sysid) + "-" + mavComponentString.Replace("_", " ");
+                    var portName = temp.port?.BaseStream?.PortName ?? "";
+                    e.Value = portName + "-" + ((int)temp.sysid) + "-" + (mavComponentString ?? "").Replace("_", " ");
                 }
             }
         }
-
-        // 拉取参数接口完成时，记得重置_paramLoading=false。建议在参数拉取完成事件中补充：
-        //    _paramLoading = false;
     }
 }

@@ -6049,7 +6049,7 @@ namespace MissionPlanner
                     // 检查是否长时间没有收到数据包（超过2秒认为连接断开）
                     if ((DateTime.UtcNow - _lastValidPacket).TotalSeconds > 2)
                     {
-                        log.Warn("Connection appears to be lost - no valid packets received");
+                        log.Warn("连接丢失，没有收到有效数据包");
                         AttemptUdpReconnect();
                     }
                 }

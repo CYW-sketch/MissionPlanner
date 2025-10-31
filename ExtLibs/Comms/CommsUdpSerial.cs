@@ -113,7 +113,7 @@ namespace MissionPlanner.Comms
             // 防御式判空：client 或 client.Client 可能因上一次 Close()/Dispose() 为 null
             if (((client != null && client.Client != null) && client.Client.Connected) || IsOpen)
             {
-                log.Info("UDPSerial socket already open");
+                log.Info("该端口套接字已开启");
                 return;
             }
 
@@ -178,6 +178,9 @@ namespace MissionPlanner.Comms
 
         public int Read(byte[] readto, int offset, int length)
         {
+            // 在切换或关闭阶段，可能被调用到，此时直接返回，避免抛异常打扰用户
+            if (!IsOpen || client == null || client.Client == null)
+                return 0;
             VerifyConnected();
             if (length < 1) return 0;
 
@@ -219,6 +222,8 @@ namespace MissionPlanner.Comms
 
         public int ReadByte()
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return -1;
             VerifyConnected();
             var count = 0;
             while (BytesToRead == 0)
@@ -241,6 +246,8 @@ namespace MissionPlanner.Comms
 
         public string ReadExisting()
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return string.Empty;
             VerifyConnected();
             var data = new byte[client.Available];
             if (data.Length > 0)
@@ -253,6 +260,8 @@ namespace MissionPlanner.Comms
 
         public void WriteLine(string line)
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return;
             VerifyConnected();
             line = line + "\n";
             Write(line);
@@ -260,6 +269,8 @@ namespace MissionPlanner.Comms
 
         public void Write(string line)
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return;
             VerifyConnected();
             var data = new ASCIIEncoding().GetBytes(line);
             Write(data, 0, data.Length);
@@ -267,6 +278,8 @@ namespace MissionPlanner.Comms
 
         public void Write(byte[] write, int offset, int length)
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return;
             VerifyConnected();
             // this is not ideal. but works
             foreach (var ipEndPoint in EndPointList)
@@ -281,6 +294,8 @@ namespace MissionPlanner.Comms
 
         public void DiscardInBuffer()
         {
+            if (!IsOpen || client == null || client.Client == null)
+                return;
             VerifyConnected();
             var size = client.Available;
             var crap = new byte[size];
