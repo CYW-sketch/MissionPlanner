@@ -40,7 +40,30 @@ namespace MissionPlanner.Controls
             cmb_Baud.Enabled = !isConnected;
             cmb_Connection.Enabled = !isConnected;
 
-            UpdateSysIDS();
+            // 如果是 UDP 连接且刚建立连接，延迟刷新 sysid 列表，等待心跳数据到达
+            if (isConnected && MainV2.comPort != null && 
+                (MainV2.comPort.BaseStream is UdpSerial || MainV2.comPort.BaseStream is UdpSerialConnect))
+            {
+                // 先立即刷新一次（显示已连接的）
+                UpdateSysIDS();
+                
+                // 延迟刷新，等待心跳数据和被动监听建立完成（2.5秒后刷新，确保被动监听也启动完成）
+                System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
+                {
+                    if (this.IsHandleCreated && !this.IsDisposed)
+                    {
+                        try
+                        {
+                            this.BeginInvoke(new Action(() => UpdateSysIDS()));
+                        }
+                        catch { }
+                    }
+                });
+            }
+            else
+            {
+                UpdateSysIDS();
+            }
         }
 
         private void ConnectionControl_MouseClick(object sender, MouseEventArgs e)
@@ -81,6 +104,13 @@ namespace MissionPlanner.Controls
 
         public void UpdateSysIDS()
         {
+            // 确保在 UI 线程上执行
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => UpdateSysIDS()));
+                return;
+            }
+
             cmb_sysid.SelectedIndexChanged -= CMB_sysid_SelectedIndexChanged;
 
             var oldidx = cmb_sysid.SelectedIndex;

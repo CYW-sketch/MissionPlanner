@@ -5648,8 +5648,8 @@ namespace MissionPlanner
                             { 
                                 udp.Open(); 
                                 _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
+                                //开启被动端质量监控
                                 SetupPassiveQualityMonitoring();
-
                                 // 优化：后台线程处理去重，UI线程触发合并刷新
                                 try
                                 {
@@ -5672,9 +5672,18 @@ namespace MissionPlanner
                                 catch { }
                             } 
                             catch (Exception ex)
-                            {
+                        {
                                 log.Warn("Failed to open passive UDP port", ex);
-                            }
+                                try
+                                {
+                                        // 即使被动端口打开失败，也刷新一次下拉，避免停留在旧状态
+                                        MainV2.instance?.BeginInvoke((Action)delegate
+                                        {
+                                                try { MainV2._connectionControl?.UpdateSysIDS(); } catch { }
+                                        });
+                                }
+                                catch { }
+                        }
                         });
                     }
                 }
@@ -5828,8 +5837,13 @@ namespace MissionPlanner
                 var passivePort = GetPassivePortInfo();
                 
                 // 获取被动端口的质量信息 - 检查被动监听是否已启动并正在接收数据
-                bool passiveConnected = _passiveMav != null && _passiveMav.BaseStream?.IsOpen == true && _passiveQualitySub != null;
-                
+                bool passiveConnected = _passiveMav?.BaseStream?.IsOpen == true && _passiveQualitySub != null;
+                // 保护性调试日志，避免空引用
+                log.Info($"_passiveMav: {_passiveMav}");
+                var bs = _passiveMav?.BaseStream;
+                log.Info($"_passiveMav.BaseStream: {bs}");
+                log.Info($"_passiveMav.BaseStream.IsOpen: {(bs is null ? "<null>" : (bs.IsOpen ? "True" : "False"))}");
+                log.Info($"_passiveQualitySub: {_passiveQualitySub}");
                 // 如果启用了双监听且被动端口已连接，显示两个端口的质量
                 if (EnableDualListen && passiveConnected)
                 {
