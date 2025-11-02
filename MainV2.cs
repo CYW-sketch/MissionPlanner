@@ -6133,9 +6133,9 @@ namespace MissionPlanner
             try
             {
                 // 检查是否有被动监听可用
-                if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true)
+                if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true&&_passiveQuality > 0.1)
                 {
-                    log.Info("Switching to passive UDP port due to active port failure");
+                    log.Info("由于当前端口数据丢失，切换至副端口");
                     SwitchToPassivePort();
                 }
                 else
@@ -6391,6 +6391,10 @@ namespace MissionPlanner
         /// </summary>
         private bool ShouldSwitchToPassive(double activeQuality, double passiveQuality)
         {
+            if(activeQuality <= 0.1 || passiveQuality <= 0.1)
+            {
+                return false;
+            }
             // 1. 如果主动质量低于阈值，被动质量高于阈值，则切换
             if (activeQuality < _qualityThreshold && passiveQuality >= _qualityThreshold)
             {
