@@ -5627,7 +5627,7 @@ namespace MissionPlanner
                     var existing = MainV2.Comports.FirstOrDefault(m =>
                         (m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort) ||
                         (m.BaseStream is MissionPlanner.Comms.UdpSerialConnect uc && uc.Port == passivePort));
-
+                    log.Info($"existing: {existing}");
                     if (existing != null)
                     {
                         _passiveMav = existing;
@@ -5728,6 +5728,8 @@ namespace MissionPlanner
             {
                 _passiveMav = null;
                 _passiveTcp = null;
+                // 重置被动端口质量，避免角色交换后显示旧的质量值
+                _passiveQuality = 0.0;
             }
         }
 
@@ -5738,6 +5740,7 @@ namespace MissionPlanner
         {
             try
             {
+                log.Info("开启质量检测");
                 if (_passiveMav == null) return;
 
                 // 清理旧的订阅
@@ -6127,7 +6130,11 @@ namespace MissionPlanner
         {
             if (_isReconnecting)
                 return;
-
+            if(_passiveQuality <= 0.1)
+            {
+                log.Info("副端口质量低于0.1，不进行切换");
+                return;
+            }
             _isReconnecting = true;
 
             try
@@ -6147,9 +6154,9 @@ namespace MissionPlanner
                         SetupPassiveListener();
                         
                         // 等待一段时间让被动监听建立
-                        System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
+                        System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ =>
                         {
-                            if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true)
+                            if (_passiveMav != null && _passiveMav.BaseStream?.IsOpen == true&&_passiveQuality > 0.1)
                             {
                                 log.Info("Passive listener established, switching to passive port");
                                 SwitchToPassivePort();
@@ -6298,9 +6305,10 @@ namespace MissionPlanner
 
                     // 详细的双端质量对比日志
                     log.Debug($"Dual Listen Quality Check - Active: {quality:0.00}, Passive: {passiveQuality:0.00}, Threshold: {_qualityThreshold:0.00}, DiffThreshold: {_qualityDifferenceThreshold:0.00}");
-
+                    bool shouldSwitch = ShouldSwitchToPassive(quality, passiveQuality);
+                    log.Info($"ShouldSwitchToPassive: {shouldSwitch}");
                     // 使用智能切换决策算法
-                    if (ShouldSwitchToPassive(quality, passiveQuality))
+                    if (shouldSwitch)
                     {
                         if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds >= _minSwitchIntervalSec)
                         {
@@ -6391,6 +6399,12 @@ namespace MissionPlanner
         /// </summary>
         private bool ShouldSwitchToPassive(double activeQuality, double passiveQuality)
         {
+            log.Info($"ShouldSwitchToPassive: activeQuality: {activeQuality}, passiveQuality: {passiveQuality}");
+            if(passiveQuality <= 0.1)
+            {
+                log.Info("被动质量低于0.1，不进行切换");
+                return false;
+            }
             if(activeQuality <= 0.1 || passiveQuality <= 0.1)
             {
                 return false;
