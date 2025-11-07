@@ -5557,6 +5557,7 @@ namespace MissionPlanner
             catch { }
 
             log.Info("自动连接管理器初始化完成");
+            log.Info($"EnableDualListen: {EnableDualListen}");
         }
 
         /// <summary>
@@ -5624,9 +5625,18 @@ namespace MissionPlanner
                     log.Info($"UDP双端监听: {activeUdpPort} -> {passivePort}");
 
                     // 优先复用已有的同端口连接（通常由 AutoConnect 建立，避免端口占用冲突）
-                    var existing = MainV2.Comports.FirstOrDefault(m =>
-                        (m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort) ||
-                        (m.BaseStream is MissionPlanner.Comms.UdpSerialConnect uc && uc.Port == passivePort));
+                    // ========== 修改前：没有空值检查，会导致NullReferenceException（已注释） ==========
+                    // var existing = MainV2.Comports.FirstOrDefault(m =>
+                    //     (m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort) ||
+                    //     (m.BaseStream is MissionPlanner.Comms.UdpSerialConnect uc && uc.Port == passivePort));
+                    // ========== 修改前代码结束 ==========
+                    
+                    // ========== 修改后：添加空值检查，避免NullReferenceException ==========
+                    var existing = MainV2.Comports?.FirstOrDefault(m =>
+                        m != null && m.BaseStream != null &&
+                        ((m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort) ||
+                         (m.BaseStream is MissionPlanner.Comms.UdpSerialConnect uc && uc.Port == passivePort)));
+                    // ========== 修改后代码结束 ==========
                     log.Info($"existing: {existing}");
                     if (existing != null)
                     {
@@ -5663,8 +5673,8 @@ namespace MissionPlanner
                                             MainV2.Comports = newComports;
                                             MainV2._connectionControl?.UpdateSysIDS();
                                             // 强制HUD主视图重绘（如有需要，可以具体到FlightData/myhud等）
-                                            if (GCSViews.FlightData.myhud != null)
-                                                GCSViews.FlightData.myhud.Invalidate();
+                                            // if (GCSViews.FlightData.myhud != null)
+                                            //     GCSViews.FlightData.myhud.Invalidate();
                                         }
                                         catch { }
                                     });
@@ -6291,7 +6301,7 @@ namespace MissionPlanner
             try
             {
                 // 定期报告主动链路质量
-                if (DateTime.Now - _lastQualityReport > TimeSpan.FromSeconds(5))
+                if (DateTime.Now - _lastQualityReport > TimeSpan.FromSeconds(3))
                 {
                     log.Info($"Active Quality Monitor: Quality={quality:0.00}, Threshold={_qualityThreshold:0.00}");
                     _lastQualityReport = DateTime.Now;
@@ -6446,42 +6456,96 @@ namespace MissionPlanner
 
                 log.Info($"UDP Switch to: {passivePort}");
 
-                // 断开当前连接
-                if (MainV2.comPort?.BaseStream?.IsOpen == true)
+                // ========== 修改前：关闭端口再切换的逻辑（已注释） ==========
+                // // 断开当前连接
+                // if (MainV2.comPort?.BaseStream?.IsOpen == true)
+                // {
+                //     MainV2.comPort.Close();
+                // }
+                //
+                // // 在占用被动端口作为新的主动端口之前，先关闭被动监听以释放端口
+                // try
+                // {
+                //     if (_passiveMav != null)
+                //     {
+                //         try { _passiveMav.Close(); } catch {}
+                //         try { _passiveMav.BaseStream?.Close(); } catch {}
+                //     }
+                // }
+                // catch {}
+                //
+                // // 创建新的UDP连接
+                // var udp = new MissionPlanner.Comms.UdpSerial();
+                // udp.Port = passivePort;
+                // udp.SuppressPrompts = true;
+                //
+                // // 设置到主连接端口
+                // MainV2.comPort.BaseStream = udp;
+                // udp.Open();
+                // _lastSwitchUtc = DateTime.UtcNow;
+                //
+                // // 更新连接状态
+                // MainV2.instance.BeginInvoke((Action)delegate
+                // {
+                //     MainV2.instance.UpdateConnectionStatus(true);
+                // });
+                //
+                // // 重新设置被动监听（现在原来的主动端口变成被动端口）
+                // SetupPassiveListener();
+                // ========== 修改前代码结束 ==========
+
+                // ========== 修改后：不关闭端口，直接切换的逻辑 ==========
+                // 检查被动端口是否已打开并可用
+                if (_passiveMav == null || _passiveMav.BaseStream?.IsOpen != true)
                 {
-                    MainV2.comPort.Close();
+                    log.Warn("Passive port is not open, cannot switch without closing");
+                    return;
                 }
 
-                // 在占用被动端口作为新的主动端口之前，先关闭被动监听以释放端口
-                try
+                // 检查当前主动端口是否已打开
+                if (MainV2.comPort?.BaseStream?.IsOpen != true)
                 {
-                    if (_passiveMav != null)
-                    {
-                        try { _passiveMav.Close(); } catch {}
-                        try { _passiveMav.BaseStream?.Close(); } catch {}
-                    }
+                    log.Warn("Active port is not open, cannot switch");
+                    return;
                 }
-                catch {}
 
-                // 创建新的UDP连接
-                var udp = new MissionPlanner.Comms.UdpSerial();
-                udp.Port = passivePort;
-                udp.SuppressPrompts = true;
+                // 直接切换：不关闭任何端口，仅交换引用
+                var oldActivePort = MainV2.comPort;
+                var oldPassiveMav = _passiveMav;
 
-                // 设置到主连接端口
-                MainV2.comPort.BaseStream = udp;
-                udp.Open();
-
-                _lastSwitchUtc = DateTime.UtcNow;
-
-                // 更新连接状态
+                // 在UI线程中执行切换，确保UI正确更新
                 MainV2.instance.BeginInvoke((Action)delegate
                 {
-                    MainV2.instance.UpdateConnectionStatus(true);
+                    try
+                    {
+                        // 交换角色：被动端口变成主动端口
+                        // 使用comPort的setter会自动触发comPort_MavChanged事件，更新UI
+                        MainV2.comPort = oldPassiveMav;
+                        
+                        // 原主动端口变成被动端口
+                        _passiveMav = oldActivePort;
+
+                        log.Info($"Swapped ports: Active={MainV2.comPort.Port}, Passive={_passiveMav.Port}");
+
+                        // 通知AutoConnectManager端口已切换，更新质量监控
+                        OnActivePortChanged(oldActivePort, oldPassiveMav);
+
+                        // 更新连接状态
+                        MainV2.instance.UpdateConnectionStatus(true);
+                        //更新sysid下拉菜单
+                        try { MainV2._connectionControl?.UpdateSysIDS(); } catch { }
+                        // 重新设置被动监听（现在原来的主动端口变成被动端口）
+                        SetupPassiveListener();
+
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Error("Error during port switch in UI thread", ex);
+                    }
                 });
 
-                // 重新设置被动监听（现在原来的主动端口变成被动端口）
-                SetupPassiveListener();
+                _lastSwitchUtc = DateTime.UtcNow;
+                // ========== 修改后代码结束 ==========
 
                 log.Info($"UDP Switch completed: {passivePort}");
             }
