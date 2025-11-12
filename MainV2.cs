@@ -2134,11 +2134,11 @@ namespace MissionPlanner
                     return;
                 }
 
-                // 手动UDP连接成功后：若启用双监听，则启动被动监听
+                // 手动UDP/TCP连接成功后：若启用双监听，则启动被动监听
                 try
                 {
                     if (AutoConnectManager.IsEnabled && AutoConnectManager.EnableDualListen && !AutoConnectManager.IsAutoConnecting &&
-                        (comPort.BaseStream is UdpSerial || comPort.BaseStream is UdpSerialConnect))
+                        (comPort.BaseStream is UdpSerial || comPort.BaseStream is UdpSerialConnect||comPort.BaseStream is TcpSerial))
                     {
                         AutoConnectManager.TriggerPassiveListenIfNeeded();
                     }
@@ -2434,7 +2434,7 @@ namespace MissionPlanner
                     else
                     {
                         // TCP 等其他类型：使用地址+端口手动输入对话框
-                        ShowManualConnectDialog();
+                        doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
                     }
                 }
                 else
@@ -5595,7 +5595,39 @@ namespace MissionPlanner
                 // 根据当前活跃链接类型（TCP/UDP）选择被动监听的方式
                 if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial)
                 {
-                    // 已禁用：TCP 被动监听，避免在 UDP 使用场景中被 TCP 自动检测/监听干扰
+                    // 被动端口监听UDP14550
+                    var passivePort = "14550";
+                    log.Info($"TCP->UDP: {passivePort}");
+                    var existing = MainV2.Comports?.FirstOrDefault(m =>
+                        m != null && m.BaseStream != null &&
+                        (m.BaseStream is MissionPlanner.Comms.UdpSerial us && us.Port == passivePort));
+                    if (existing != null)
+                    {
+                        _passiveMav = existing;
+                        SetupPassiveQualityMonitoring();
+                    }
+                    else
+                    {
+                        var udp = new MissionPlanner.Comms.UdpSerial();
+                        udp.Port = passivePort;
+                        udp.SuppressPrompts = true;
+                        _passiveMav = new MAVLinkInterface { BaseStream = udp };
+                        System.Threading.Tasks.Task.Run(() =>
+                        {
+                            try 
+                            { 
+                                udp.Open(); 
+                                _passiveMav.Open(getparams: false, skipconnectedcheck: true, showui: false);
+                                SetupPassiveQualityMonitoring();
+                            }
+                            catch (Exception ex)
+                            {
+                                log.Warn("Failed to open passive UDP port", ex);
+                            }
+                        });
+                    }
+
+                    try { MainV2._connectionControl?.UpdateSysIDS(); } catch { }
                     return;
                 }
                 else if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
@@ -6322,18 +6354,30 @@ namespace MissionPlanner
                     {
                         if ((DateTime.UtcNow - _lastSwitchUtc).TotalSeconds >= _minSwitchIntervalSec)
                         {
-                            // 判断是UDP双监听还是TCP双监听
-                            if (MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
-                                MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
+                            // 判断是UDP双监听还是TCP->UDP监听,判断被动端口是否是UDP
+                            if ((MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                                MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)&(_passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                                _passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerialConnect))
                             {
                                 // UDP双监听：切换到被动端口
                                 log.Warn($"UDP Switch: {quality:0.00} -> {passiveQuality:0.00}");
                                 SwitchToPassivePort();
                                 return;
                             }
-                            // 禁用：TCP 双监听切换逻辑，避免影响UDP场景
-                            else
+                            // TCP->UDP
+                            else if(MainV2.comPort?.BaseStream is MissionPlanner.Comms.TcpSerial&&_passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                                _passiveMav?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)
                             {
+                                log.Warn($"TCP Switch: {quality:0.00} -> {passiveQuality:0.00}");
+                                SwitchToPassivePort();
+                                return;
+                            }
+                            // UDP->TCP
+                            else if((MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerial || 
+                                MainV2.comPort?.BaseStream is MissionPlanner.Comms.UdpSerialConnect)&&_passiveMav?.BaseStream is MissionPlanner.Comms.TcpSerial)
+                            {
+                                log.Warn($"UDP Switch: {quality:0.00} -> {passiveQuality:0.00}");
+                                SwitchToPassivePort();
                                 return;
                             }
                         }
@@ -6525,7 +6569,7 @@ namespace MissionPlanner
                         // 原主动端口变成被动端口
                         _passiveMav = oldActivePort;
 
-                        log.Info($"Swapped ports: Active={MainV2.comPort.Port}, Passive={_passiveMav.Port}");
+                        // log.Info($"Swapped ports: Active={MainV2.comPort.Port}, Passive={_passiveMav.Port}");
 
                         // 通知AutoConnectManager端口已切换，更新质量监控
                         OnActivePortChanged(oldActivePort, oldPassiveMav);
