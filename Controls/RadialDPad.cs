@@ -9,7 +9,7 @@ namespace MissionPlanner.Controls
 	{
 		[Browsable(true)]
 		[DefaultValue(12)]
-		public int RingThickness { get; set; } = 15;
+		public int RingThickness { get; set; } =40;
 
 		[Browsable(true)]
 		[DefaultValue(typeof(Color), "#66000000")]
@@ -164,38 +164,71 @@ namespace MissionPlanner.Controls
 
 		private void UpdateActiveFromPoint(Point p, bool exclusive)
 		{
-			var rect = ClientRectangle;
-			var center = new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
-			double dx = p.X - center.X;
-			double dy = p.Y - center.Y;
-			double distance = Math.Sqrt(dx * dx + dy * dy);
-			double angle = (Math.Atan2(dy, dx) * 180.0 / Math.PI + 360.0) % 360.0; // 0=right, 90=down
+			// var rect = ClientRectangle;
+			// var center = new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+			// double dx = p.X - center.X;
+			// double dy = p.Y - center.Y;
+			// double distance = Math.Sqrt(dx * dx + dy * dy);
+			// double angle = (Math.Atan2(dy, dx) * 180.0 / Math.PI + 360.0) % 360.0; // 0=right, 90=down
 
-			int rOuter = Math.Min(rect.Width, rect.Height) / 2;
-			int rInner = Math.Max(0, rOuter - Math.Max(6, RingThickness));
-			bool inRing = distance >= rInner && distance <= rOuter;
+			// int rOuter = Math.Min(rect.Width, rect.Height) / 2;
+			// int rInner = Math.Max(0, rOuter - Math.Max(6, RingThickness));
+			// bool inRing = distance >= rInner && distance <= rOuter;
 
-			if (exclusive)
+			// if (exclusive)
+			// {
+			// 	SetUp(false); SetDown(false); SetLeft(false); SetRight(false);
+			// }
+
+			// if (inRing)
+			// {
+			// 	// Use mutually exclusive half-open sectors to avoid boundary overlaps
+			// 	bool right = false, down = false, left = false, up = false;
+			// 	if (AngleInSector(angle, 315, 45)) right = true; // [315, 360) U [0, 45]
+			// 	else if (AngleInSector(angle, 45, 135)) down = true; // (45, 135]
+			// 	else if (AngleInSector(angle, 135, 225)) left = true; // (135, 225]
+			// 	else up = true; // remaining sector (225, 315]
+
+			// 	SetUp(up);
+			// 	SetRight(right);
+			// 	SetDown(down);
+			// 	SetLeft(left);
+			// }
+
+			// Invalidate();
 			{
-				SetUp(false); SetDown(false); SetLeft(false); SetRight(false);
+				var rect = ClientRectangle;
+				var center = new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+				double dx = p.X - center.X;
+				double dy = p.Y - center.Y;
+				double distance = Math.Sqrt(dx * dx + dy * dy);
+				double angle = (Math.Atan2(dy, dx) * 180.0 / Math.PI + 360.0) % 360.0; // 0=right, 90=down
+
+				// 移除圆环限制，允许整个圆形区域内点击
+				int maxRadius = Math.Min(rect.Width, rect.Height) / 2;
+				bool inCircle = distance <= maxRadius; // 改为圆形区域判断
+
+				if (exclusive)
+				{
+					SetUp(false); SetDown(false); SetLeft(false); SetRight(false);
+				}
+
+				if (inCircle) // 在圆形区域内进行扇形判断
+				{
+					bool right = false, down = false, left = false, up = false;
+					if (AngleInSector(angle, 315, 45)) right = true;
+					else if (AngleInSector(angle, 45, 135)) down = true;
+					else if (AngleInSector(angle, 135, 225)) left = true;
+					else up = true;
+
+					SetUp(up);
+					SetRight(right);
+					SetDown(down);
+					SetLeft(left);
+				}
+
+				Invalidate();
 			}
-
-			if (inRing)
-			{
-				// Use mutually exclusive half-open sectors to avoid boundary overlaps
-				bool right = false, down = false, left = false, up = false;
-				if (AngleInSector(angle, 315, 45)) right = true; // [315, 360) U [0, 45]
-				else if (AngleInSector(angle, 45, 135)) down = true; // (45, 135]
-				else if (AngleInSector(angle, 135, 225)) left = true; // (135, 225]
-				else up = true; // remaining sector (225, 315]
-
-				SetUp(up);
-				SetRight(right);
-				SetDown(down);
-				SetLeft(left);
-			}
-
-			Invalidate();
 		}
 
 		private bool AngleInSector(double angleDeg, double startDeg, double endDeg)
