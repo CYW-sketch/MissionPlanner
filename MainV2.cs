@@ -1927,17 +1927,17 @@ namespace MissionPlanner
                     
                     // 设置默认端口，避免弹出端口输入框
                     // 只让用户输入地址，端口使用默认值
-                    tcpSerial.Port = AutoConnectManager.GetPortForHost(AutoConnectManager.PrimaryTcpHost);
+                    // tcpSerial.Port = AutoConnectManager.GetPortForHost(AutoConnectManager.PrimaryTcpHost);
                     
-                    // 根据连接类型设置标志
-                    if (AutoConnectManager.IsAutoConnecting)
-                    {
-                        AutoConnectManager.MarkAutoConnect();
-                    }
-                    else
-                    {
-                        AutoConnectManager.MarkManualConnect();
-                    }
+                    // // 根据连接类型设置标志
+                    // if (AutoConnectManager.IsAutoConnecting)
+                    // {
+                    //     AutoConnectManager.MarkAutoConnect();
+                    // }
+                    // else
+                    // {
+                    //     AutoConnectManager.MarkManualConnect();
+                    // }
                     break;
                 case "UDP":
                     var udpBase = new UdpSerial();
@@ -2378,57 +2378,64 @@ namespace MissionPlanner
             comPort.rawlogfile = null;
 
             // decide if this is a connect or disconnect
+            // if (comPort.BaseStream.IsOpen)
+            // {
+            //     doDisconnect(comPort);
+            // }
+            // else
+            // {
+            //     // 检查是否是手动连接（非自动连接）
+            //     if (!AutoConnectManager.IsAutoConnecting)
+            //     {
+            //         // 手动连接：根据端口类型分别弹窗
+            //         // 使用comPortName来判断，支持"UDP"或"UDP:端口"格式
+            //         if (string.Equals(comPortName, "UDP", StringComparison.OrdinalIgnoreCase) || 
+            //             comPortName.StartsWith("UDP:", StringComparison.OrdinalIgnoreCase))
+            //         {
+            //             var udpBase = new UdpSerial();
+            //             try
+            //             {
+            //                 var chosen = SelectUdpPort();
+            //                 if (string.IsNullOrEmpty(chosen))
+            //                     return; // 用户取消
+            //                 udpBase.Port = chosen; // 14551/14552
+            //                 udpBase.SuppressPrompts = true; // 避免再次弹窗
+            //             }
+            //             catch
+            //             {
+            //                 udpBase.Port = "14551";
+            //                 udpBase.SuppressPrompts = false;
+            //             }
+
+            //             comPort.BaseStream = udpBase;
+            //             _connectionControl.CMB_serialport.Text = "UDP";
+
+            //             // 标记为手动连接
+            //             AutoConnectManager.MarkManualConnect();
+
+            //             // 直接连接
+            //             doConnect(comPort, "preset", "0");
+            //         }
+            //         else
+            //         {
+            //             // TCP 等其他类型：使用地址+端口手动输入对话框
+            //             doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
+            //         }
+            //     }
+            //     else
+            //     {
+            //         // 自动连接，使用默认配置
+            //         doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
+            //     }
+            // }
             if (comPort.BaseStream.IsOpen)
             {
                 doDisconnect(comPort);
             }
             else
             {
-                // 检查是否是手动连接（非自动连接）
-                if (!AutoConnectManager.IsAutoConnecting)
-                {
-                    // 手动连接：根据端口类型分别弹窗
-                    // 使用comPortName来判断，支持"UDP"或"UDP:端口"格式
-                    if (string.Equals(comPortName, "UDP", StringComparison.OrdinalIgnoreCase) || 
-                        comPortName.StartsWith("UDP:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var udpBase = new UdpSerial();
-                        try
-                        {
-                            var chosen = SelectUdpPort();
-                            if (string.IsNullOrEmpty(chosen))
-                                return; // 用户取消
-                            udpBase.Port = chosen; // 14551/14552
-                            udpBase.SuppressPrompts = true; // 避免再次弹窗
-                        }
-                        catch
-                        {
-                            udpBase.Port = "14551";
-                            udpBase.SuppressPrompts = false;
-                        }
-
-                        comPort.BaseStream = udpBase;
-                        _connectionControl.CMB_serialport.Text = "UDP";
-
-                        // 标记为手动连接
-                        AutoConnectManager.MarkManualConnect();
-
-                        // 直接连接
-                        doConnect(comPort, "preset", "0");
-                    }
-                    else
-                    {
-                        // TCP 等其他类型：使用地址+端口手动输入对话框
-                        doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
-                    }
-                }
-                else
-                {
-                    // 自动连接，使用默认配置
-                    doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
-                }
+                doConnect(comPort, _connectionControl.CMB_serialport.Text, _connectionControl.CMB_baudrate.Text);
             }
-
             _connectionControl.UpdateSysIDS();
 
             if (comPort.BaseStream.IsOpen)
