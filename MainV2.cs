@@ -2309,23 +2309,8 @@ namespace MissionPlanner
                     // set connected icon
                     this.MenuConnect.Image = displayicons.disconnect;
                     
-                    // 如果是TCP连接，初始化自动连接管理器
-                    // if (comPort.BaseStream is TcpSerial)
-                    // {
-                    //     // 检测当前连接的TCP地址
-                    //     var tcpSerial = comPort.BaseStream as TcpSerial;
-                    //     if (!string.IsNullOrEmpty(tcpSerial.Host))
-                    //     {
-                    //         // 设置当前TCP地址到自动连接管理器
-                    //         AutoConnectManager.CurrentTcpHost = tcpSerial.Host;
-                    //         log.Info($"Detected current TCP host: {tcpSerial.Host}");
-                    //     }
-                        
-                    //     AutoConnectManager.Initialize();
-                    //     AutoConnectManager.EnableAutoConnect();
-                    // }
-                    AutoConnectManager.Initialize();
-                    AutoConnectManager.EnableAutoConnect();
+                    // AutoConnectManager.Initialize();
+                    // AutoConnectManager.DisableAutoConnect();
                 });
             }
             catch (Exception ex)
