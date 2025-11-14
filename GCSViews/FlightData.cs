@@ -279,12 +279,6 @@ namespace MissionPlanner.GCSViews
                     //加上键盘控制
 
                     dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +_rcStepPwm, 0);      // Throttle up (disabled)
-                    dpadLeft.KeyDown += (s, e) => {
-                        if (e.KeyCode == Keys.W) {
-                            RcStep_Send(true, 0, 0, +_rcStepPwm, 0);
-                            e.Handled = true; // 可选：阻止按键默认行为（如输入字符）
-                        }
-                    };
                     dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -_rcStepPwm, 0);    // Throttle down (disabled)
                     dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -_rcStepPwm);    // Yaw left
                     dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +_rcStepPwm);   // Yaw right
