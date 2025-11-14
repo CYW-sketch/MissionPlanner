@@ -32,7 +32,7 @@ using ZedGraph;
 using LogAnalyzer = MissionPlanner.Utilities.LogAnalyzer;
 using TableLayoutPanelCellPosition = System.Windows.Forms.TableLayoutPanelCellPosition;
 using UnauthorizedAccessException = System.UnauthorizedAccessException;
-
+using System.Windows.Input;
 // written by michael oborne
 
 namespace MissionPlanner.GCSViews
@@ -275,7 +275,16 @@ namespace MissionPlanner.GCSViews
 
                 if (dpadLeft != null)
                 {
+                    //触发事件
+                    //加上键盘控制
+
                     dpadLeft.UpChanged += (s, a) => RcStep_Send(a, 0, 0, +_rcStepPwm, 0);      // Throttle up (disabled)
+                    dpadLeft.KeyDown += (s, e) => {
+                        if (e.KeyCode == Keys.W) {
+                            RcStep_Send(true, 0, 0, +_rcStepPwm, 0);
+                            e.Handled = true; // 可选：阻止按键默认行为（如输入字符）
+                        }
+                    };
                     dpadLeft.DownChanged += (s, a) => RcStep_Send(a, 0, 0, -_rcStepPwm, 0);    // Throttle down (disabled)
                     dpadLeft.LeftChanged += (s, a) => RcStep_Send(a, 0, 0, 0, -_rcStepPwm);    // Yaw left
                     dpadLeft.RightChanged += (s, a) => RcStep_Send(a, 0, 0, 0, +_rcStepPwm);   // Yaw right
@@ -7257,7 +7266,7 @@ namespace MissionPlanner.GCSViews
             if (splitContainer1.Panel2.Controls.Contains(dpadLeft) && splitContainer1.Panel2.Controls.Contains(dpadRight))
             {
                 const int margin = 10;
-                var size = new Size(120, 120);
+                var size = new Size(200, 200);
                 // Right joystick in the far bottom-right corner, keeping clear of zoom trackbar
                 var rightX = splitContainer1.Panel2.Width - size.Width - margin;
                 var rightY = splitContainer1.Panel2.Height - size.Height - margin;
@@ -7265,7 +7274,7 @@ namespace MissionPlanner.GCSViews
                 dpadRight.Size = size;
 
                 // Left joystick to the left of the right joystick with a small gap
-                var leftX = rightX - size.Width - margin;
+                var leftX = rightX - size.Width - margin-20;
                 var leftY = rightY;
                 dpadLeft.Location = new Point(leftX, leftY);
                 dpadLeft.Size = size;

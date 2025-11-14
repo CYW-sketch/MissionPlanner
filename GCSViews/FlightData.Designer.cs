@@ -3146,22 +3146,24 @@ namespace MissionPlanner.GCSViews
             // dpadLeft
             // 
             this.dpadLeft.Name = "dpadLeft";
-            this.dpadLeft.Size = new System.Drawing.Size(120, 120);
+            this.dpadLeft.Size = new System.Drawing.Size(500, 500);
             this.dpadLeft.TabIndex = 0;
             this.dpadLeft.UpText = "上升";
             this.dpadLeft.DownText = "下降";
             this.dpadLeft.LeftText = "左转";
             this.dpadLeft.RightText = "右转";
+            this.dpadLeft.IsLeftStick = true; // 左摇杆，使用WASD控制
 
             // dpadRight
             // 
             this.dpadRight.Name = "dpadRight";
-            this.dpadRight.Size = new System.Drawing.Size(120, 120);
+            this.dpadRight.Size = new System.Drawing.Size(240, 240);
             this.dpadRight.TabIndex = 1;
             this.dpadRight.UpText = "前进";
             this.dpadRight.DownText = "后退";
             this.dpadRight.LeftText = "左移";
             this.dpadRight.RightText = "右移";
+            this.dpadRight.IsLeftStick = false; // 右摇杆，使用方向键控制
 
             // cmbRcStep
             // 
