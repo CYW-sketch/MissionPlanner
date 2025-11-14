@@ -77,15 +77,25 @@ namespace MissionPlanner.Controls
 
 		public RadialDPad()
 		{
-			SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.SupportsTransparentBackColor, true);
+			SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.SupportsTransparentBackColor | ControlStyles.EnableNotifyMessage, true);
 			Size = new Size(360, 360);
 			BackColor = Color.Transparent; // allowed after enabling SupportsTransparentBackColor
 			this.TabStop = false; // 取消Tab控制，不需要焦点即可使用
+			
+			// 启用触摸支持
+			EnableTouch();
 			
 			// 添加定时器检测按键释放
 			var timer = new Timer { Interval = 50 }; // 每50ms检查一次
 			timer.Tick += Timer_Tick;
 			timer.Start();
+		}
+		
+		// 启用触摸支持
+		private void EnableTouch()
+		{
+			// Windows Forms 会自动将触摸事件转换为鼠标事件
+			// 这里不需要特殊处理
 		}
 
 		// 检查控件是否应该响应键盘输入
@@ -444,8 +454,81 @@ namespace MissionPlanner.Controls
 		protected override void OnMouseDown(MouseEventArgs e)
 		{
 			base.OnMouseDown(e);
+			// 对于触摸操作，确保控件能够接收事件
+			Capture = true; // 捕获鼠标/触摸输入
 			isMouseActive = true; // 标记开始鼠标操作
 			UpdateActiveFromPoint(e.Location, true);
+		}
+		
+		// 重写 WndProc 来处理触摸消息，确保触摸事件能正确触发
+		protected override void WndProc(ref Message m)
+		{
+			// WM_LBUTTONDOWN (0x0201) - 鼠标左键按下（触摸也会触发此消息）
+			// WM_MOUSEMOVE (0x0200) - 鼠标移动（触摸长按移动也会触发）
+			// WM_LBUTTONUP (0x0202) - 鼠标左键释放（触摸释放也会触发）
+			const int WM_LBUTTONDOWN = 0x0201;
+			const int WM_MOUSEMOVE = 0x0200;
+			const int WM_LBUTTONUP = 0x0202;
+			
+			// 对于触摸操作，Windows会自动转换为鼠标消息
+			// 但第一次触摸时，控件可能没有焦点，导致事件没有被触发
+			// 所以在这里直接处理，确保第一次触摸就能触发事件
+			if (m.Msg == WM_LBUTTONDOWN)
+			{
+				// 获取点击位置（已经是客户端坐标）
+				int x = (short)(m.LParam.ToInt32() & 0xFFFF);
+				int y = (short)((m.LParam.ToInt32() >> 16) & 0xFFFF);
+				Point clientPoint = new Point(x, y);
+				
+				// 如果点击在控件内，直接处理
+				if (ClientRectangle.Contains(clientPoint))
+				{
+					// 确保控件能够接收事件
+					if (!Focused && TabStop)
+					{
+						Focus();
+					}
+					
+					// 直接调用处理逻辑，确保第一次触摸就能触发
+					// 注意：这里可能会和OnMouseDown重复处理，但SetLeft等方法有检查，不会重复触发事件
+					if (!isMouseActive)
+					{
+						isMouseActive = true;
+						Capture = true;
+						UpdateActiveFromPoint(clientPoint, true);
+					}
+					
+					// 继续处理消息，让系统也触发OnMouseDown事件
+					// 这样即使第一次触摸没有触发OnMouseDown，我们也能处理
+				}
+			}
+			else if (m.Msg == WM_MOUSEMOVE && isMouseActive)
+			{
+				// 触摸长按移动时，持续更新状态
+				// 检查是否有鼠标按钮按下（触摸时也会设置）
+				int wParam = m.WParam.ToInt32();
+				bool buttonPressed = (wParam & 0x0001) != 0; // MK_LBUTTON
+				
+				if (buttonPressed)
+				{
+					// 获取移动位置（已经是客户端坐标）
+					int x = (short)(m.LParam.ToInt32() & 0xFFFF);
+					int y = (short)((m.LParam.ToInt32() >> 16) & 0xFFFF);
+					Point clientPoint = new Point(x, y);
+					
+					// 持续更新状态，支持触摸长按
+					UpdateActiveFromPoint(clientPoint, true);
+				}
+			}
+			else if (m.Msg == WM_LBUTTONUP && isMouseActive)
+			{
+				// 触摸释放时，清除状态
+				isMouseActive = false;
+				Capture = false;
+				ClearActive();
+			}
+			
+			base.WndProc(ref m);
 		}
 
 		protected override void OnMouseMove(MouseEventArgs e)
@@ -461,6 +544,7 @@ namespace MissionPlanner.Controls
 		protected override void OnMouseUp(MouseEventArgs e)
 		{
 			base.OnMouseUp(e);
+			Capture = false; // 释放鼠标/触摸捕获
 			isMouseActive = false; // 标记结束鼠标操作
 			ClearActive();
 		}
