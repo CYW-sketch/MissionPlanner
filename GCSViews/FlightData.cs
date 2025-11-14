@@ -3142,6 +3142,11 @@ namespace MissionPlanner.GCSViews
         private int _rcOverrideThrottlePwm = 1500;
         private int _rcOverrideYawPwm = 1500;
         private int _rcStepPwm = 250; // default 25%
+        
+        // 连按检测：记录每个方向的最后释放时间和取消令牌
+        private Dictionary<string, DateTime> _rcReleaseTimes = new Dictionary<string, DateTime>();
+        private Dictionary<string, CancellationTokenSource> _rcReleaseCancellationTokens = new Dictionary<string, CancellationTokenSource>();
+        private const int RAPID_PRESS_THRESHOLD_MS = 300; // 连按判定阈值（毫秒）
 
         private void RcStep_Send(bool active, int dRoll, int dPitch, int dThrottle, int dYaw)
         {
@@ -3151,8 +3156,28 @@ namespace MissionPlanner.GCSViews
             var sysid = (byte)MainV2.comPort.sysidcurrent;
             var compid = (byte)MainV2.comPort.compidcurrent;
 
+            // 生成方向标识键
+            string directionKey = GetDirectionKey(dRoll, dPitch, dThrottle, dYaw);
+
             if (active)
             {
+                // 检查是否是连按：如果距离上次释放时间小于阈值，则认为是连按
+                bool isRapidPress = false;
+                if (!string.IsNullOrEmpty(directionKey) && _rcReleaseTimes.ContainsKey(directionKey))
+                {
+                    var timeSinceRelease = (DateTime.Now - _rcReleaseTimes[directionKey]).TotalMilliseconds;
+                    if (timeSinceRelease < RAPID_PRESS_THRESHOLD_MS)
+                    {
+                        isRapidPress = true;
+                        // 取消之前的恢复任务
+                        if (_rcReleaseCancellationTokens.ContainsKey(directionKey))
+                        {
+                            _rcReleaseCancellationTokens[directionKey]?.Cancel();
+                            _rcReleaseCancellationTokens.Remove(directionKey);
+                        }
+                    }
+                }
+
                 // Update only the axis being changed; others stay centered (1500)
                 if (dRoll != 0) _rcOverrideRollPwm = Clamp1100_1900(_rcOverrideRollPwm + dRoll);
                 if (dPitch != 0) _rcOverridePitchPwm = Clamp1100_1900(_rcOverridePitchPwm + dPitch);
@@ -3177,7 +3202,7 @@ namespace MissionPlanner.GCSViews
                     ushort throttle = (ushort)(dThrottle != 0 ? _rcOverrideThrottlePwm : currentThrottle);
                     ushort yaw = (ushort)(dYaw != 0 ? _rcOverrideYawPwm : 1500);
 
-                    log.Info($"RC OVERRIDE (press): CH1={roll} CH2={pitch} CH3={throttle} CH4={yaw}");
+                    log.Info($"RC OVERRIDE (press{(isRapidPress ? ", rapid" : "")}): CH1={roll} CH2={pitch} CH3={throttle} CH4={yaw}");
 
                     MainV2.comPort.SendRCOverride(sysid, compid,
                         roll,
@@ -3202,17 +3227,46 @@ namespace MissionPlanner.GCSViews
             }
             else
             {
-                // on release, recenter only the axis that changed
-                if (dRoll != 0) _rcOverrideRollPwm = 1500;
-                if (dPitch != 0) _rcOverridePitchPwm = 1500;
-                if (dThrottle != 0) _rcOverrideThrottlePwm = 1500;
-                if (dYaw != 0) _rcOverrideYawPwm = 1500;
+                // 记录释放时间
+                if (!string.IsNullOrEmpty(directionKey))
+                {
+                    _rcReleaseTimes[directionKey] = DateTime.Now;
+                }
 
-                // send center 3 times to ensure reception
+                // 创建取消令牌用于延迟恢复任务
+                var cts = new CancellationTokenSource();
+                if (!string.IsNullOrEmpty(directionKey))
+                {
+                    // 如果已存在，先取消旧的
+                    if (_rcReleaseCancellationTokens.ContainsKey(directionKey))
+                    {
+                        _rcReleaseCancellationTokens[directionKey]?.Cancel();
+                    }
+                    _rcReleaseCancellationTokens[directionKey] = cts;
+                }
+
+                // 延迟执行恢复逻辑，如果在延迟期间再次按下（连按），则取消恢复
                 System.Threading.Tasks.Task.Run(() =>
                 {
                     try
                     {
+                        // 等待连按判定时间窗口
+                        System.Threading.Thread.Sleep(RAPID_PRESS_THRESHOLD_MS);
+                        
+                        // 检查是否被取消（说明是连按）
+                        if (cts.Token.IsCancellationRequested)
+                        {
+                            return; // 连按，不执行恢复逻辑
+                        }
+
+                        // 非连按，执行恢复逻辑
+                        // on release, recenter only the axis that changed
+                        if (dRoll != 0) _rcOverrideRollPwm = 1500;
+                        if (dPitch != 0) _rcOverridePitchPwm = 1500;
+                        if (dThrottle != 0) _rcOverrideThrottlePwm = 1500;
+                        if (dYaw != 0) _rcOverrideYawPwm = 1500;
+
+                        // send center 3 times to ensure reception
                         // log.Info("RC OVERRIDE (release): CH1=1500 CH2=1500 CH3=1500 CH4=1500 CH5=1500 CH6=1500 CH7=1500 CH8=1500 x3");
                         // Read back current throttle and keep feeding it back (we don't control throttle)
                         ushort currentThrottle = 1500;
@@ -3226,7 +3280,10 @@ namespace MissionPlanner.GCSViews
 
                         for (int i = 0; i < 3; i++)
                         {
-                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 1500, 1500, 65535, 65535,65535, 65535);
+                            if (cts.Token.IsCancellationRequested)
+                                return; // 再次检查，防止在发送过程中被取消
+                            
+                            MainV2.comPort.SendRCOverride(sysid, compid, 1500, 1500, 1500, 1500, 65535, 65535, 65535, 65535);
                             System.Threading.Thread.Sleep(40);
                         }
 
@@ -3239,9 +3296,25 @@ namespace MissionPlanner.GCSViews
                         }
                         catch { }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // 正常取消，忽略
+                    }
                     catch { }
                 });
             }
+        }
+
+        /// <summary>
+        /// 根据方向增量生成唯一的方向标识键
+        /// </summary>
+        private string GetDirectionKey(int dRoll, int dPitch, int dThrottle, int dYaw)
+        {
+            if (dRoll != 0) return dRoll > 0 ? "Roll_Right" : "Roll_Left";
+            if (dPitch != 0) return dPitch > 0 ? "Pitch_Back" : "Pitch_Forward";
+            if (dThrottle != 0) return dThrottle > 0 ? "Throttle_Up" : "Throttle_Down";
+            if (dYaw != 0) return dYaw > 0 ? "Yaw_Right" : "Yaw_Left";
+            return null;
         }
 
         private static int Clamp1100_1900(int v) => Math.Max(1100, Math.Min(1900, v));
