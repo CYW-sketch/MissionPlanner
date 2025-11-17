@@ -741,7 +741,7 @@ namespace MissionPlanner.GCSViews
                                             //如果是高空抛投模式
                                             if (dlg.SelectedLandingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop)
                                             {
-                                                AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat,dlg.LandAlt, null);
+                                                AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0,dlg.LandAlt-dlg.DropHeight, null);
                                             }
                                             else
                                             {
@@ -1851,10 +1851,11 @@ namespace MissionPlanner.GCSViews
                             }
                             if (needTakeoffBeforeRTL)
                             {
+                                log.Info("需要插入Takeoff");
                                 //如果是高空抛投模式
                                 if (dlg.SelectedLandingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, dlg.LandLng, dlg.LandLat, dlg.LandAlt, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0,dlg.LandAlt-dlg.DropHeight, null);
                                 }
                                 else
                                 {
@@ -2171,7 +2172,7 @@ namespace MissionPlanner.GCSViews
                                 //如果是高空抛投模式
                                 if (landingMode == RemoteTakeoffLandingForm.LandingMode.LandDrop)
                                 {
-                                    AddCommand(MAVLink.MAV_CMD.WAYPOINT, 0, 0, 0, 0, landLng, landLat, landAlt, null);
+                                    AddCommand(MAVLink.MAV_CMD.TAKEOFF, 0, 0, 0, 0, 0, 0, landAlt-dropHeight, null);
                                 }
                                 else
                                 {
@@ -2185,7 +2186,7 @@ namespace MissionPlanner.GCSViews
                             }
                             AddCommand(MAVLink.MAV_CMD.RETURN_TO_LAUNCH, 0, 0, 0, 0, 0, 0, 0, null);
                             // 返航指令默认使用Absolute模式
-                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Terrain;
+                            Commands.Rows[Commands.Rows.Count - 1].Cells[Frame.Index].Value = altmode.Absolute;
                         }
                     }
                 }
