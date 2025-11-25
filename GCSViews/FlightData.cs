@@ -2930,18 +2930,18 @@ namespace MissionPlanner.GCSViews
             groundColorToolStripMenuItem_Click(null, null);
 
             // Ensure all QuickView controls have green color after load
-            try
-            {
-                foreach (Control ctrl in tableLayoutPanelQuick.Controls)
-                {
-                    if (ctrl is QuickView qv)
-                    {
-                        qv.numberColor = Color.LightGreen;
-                        qv.numberColorBackup = Color.LightGreen;
-                    }
-                }
-            }
-            catch { }
+            // try
+            // {
+            //     foreach (Control ctrl in tableLayoutPanelQuick.Controls)
+            //     {
+            //         if (ctrl is QuickView qv)
+            //         {
+            //             qv.numberColor = Color.LightGreen;
+            //             qv.numberColorBackup = Color.LightGreen;
+            //         }
+            //     }
+            // }
+            // catch { }
 
             hud1.doResize();
 
