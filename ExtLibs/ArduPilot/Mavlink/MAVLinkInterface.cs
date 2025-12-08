@@ -1877,7 +1877,7 @@ namespace MissionPlanner
                         };
                         return ftp.GetFile(
                             // always try to get defualts, AP will send orginal format if not avalable
-                            "@PARAM/fanya.pck?withdefaults=1", cancel, true, 110);
+                            "@PARAM/fanya.pck?withdefaults=1", cancel, true, 110);//ok
                     });
                     while (!paramfileTask.IsCompleted)
                     {
