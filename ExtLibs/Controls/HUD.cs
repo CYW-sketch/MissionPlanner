@@ -498,6 +498,9 @@ namespace MissionPlanner.Controls
             }
         }
 
+
+        private Rectangle fuelHitZone = new Rectangle();
+
         [System.ComponentModel.Browsable(true), System.ComponentModel.Category("Values")]
         public bool lowgroundspeed
         {
@@ -693,7 +696,7 @@ namespace MissionPlanner.Controls
                 }
             }
         }
-
+      
         [System.ComponentModel.Browsable(true), System.ComponentModel.Category("Values")]
         public float disttowp
         {
@@ -2889,7 +2892,62 @@ namespace MissionPlanner.Controls
 
                     }
                 }
-
+            // 绘制燃油指示器（进度条形式）- 整体左移靠近左侧边框
+                if (batteryon2 && _batteryremaining2 >= 0)
+                {
+                    graphicsObject.ResetTransform();
+                    
+                    int fuelBarWidth = 20;   // 进度条宽度    
+                    int fuelBarHeight = 10;  // 进度条高度
+                    
+                    // 计算电池信息文本的宽度，以便将燃油指示器放置在其后
+                    string batteryText = HUDT.Bat + "1 " + _batterylevel.ToString("0.00v") + " " + _current.ToString("0.0 A") + " " + (_batteryremaining) + "%";
+                    
+                    // 使用 graphicsObjectGDIP 来测量字符串尺寸
+                    SizeF textSize = graphicsObjectGDIP.MeasureString(batteryText, new Font(HUDT.Font, fontsize));
+                    
+                    // 将整个燃油显示组件整体左移，靠近左侧边框一个像素的位置
+                    int fuelXPos = 1;  // 靠近左侧边框一个像素
+                    int fuelYPos = yPos[0] +10; // 与电池信息在同一行，略微向下偏移5像素
+                    
+                    // 绘制"油量："文字，与电池信息对齐
+                    string fuelText = "油量：";
+                    SolidBrush textColor = _whiteBrush;
+                    drawstring(fuelText, font, fontsize, textColor, fuelXPos, yPos[0]);
+                    
+                    // 计算"油量："文字的宽度，以便后续元素正确对齐
+                    SizeF fuelTextSize = graphicsObjectGDIP.MeasureString(fuelText, new Font(HUDT.Font, fontsize));
+                    
+                    // 燃油背景框 (调整位置以适应文字)
+                    Rectangle fuelBg = new Rectangle((int)(fuelXPos + fuelTextSize.Width), fuelYPos, fuelBarWidth, fuelBarHeight);
+                    fuelHitZone = fuelBg;
+                    
+                    // 绘制背景
+                    graphicsObject.FillRectangle(_whiteBrush, fuelBg);
+                    graphicsObject.DrawRectangle(_whitePen, fuelBg);
+                    
+                    // 根据燃油余量设置颜色
+                    SolidBrush fuelBrush = _whiteBrush;
+                    if (_batteryremaining2 < 10)
+                        fuelBrush = _redBrush;
+                    else if (_batteryremaining2 < 30)
+                        fuelBrush = _orangeBrush;
+                    
+                    // 绘制燃油余量条
+                    int fuelWidth = (int)(fuelBarWidth * (_batteryremaining2 / 100.0f));
+                    if (fuelWidth > 0)
+                    {
+                        Rectangle fuelBar = new Rectangle((int)(fuelXPos + fuelTextSize.Width), fuelYPos, fuelWidth, fuelBarHeight);
+                        graphicsObject.FillRectangle(fuelBrush, fuelBar);
+                    }
+                    
+                    // 绘制燃油百分比数值，放在进度条右侧并对齐
+                    string fuelPercentText = _batteryremaining2.ToString("0") + "%";
+                    SizeF fuelPercentSize = graphicsObjectGDIP.MeasureString(fuelPercentText, new Font(HUDT.Font, fontsize));
+                    drawstring(fuelPercentText, font, fontsize, textColor, 
+                            (int)(fuelXPos + fuelTextSize.Width + fuelBarWidth + 3), yPos[0]);
+                }
+                                                            
                 // gps
                 if (displaygps)
                 {
