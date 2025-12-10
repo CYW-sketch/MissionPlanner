@@ -2908,8 +2908,9 @@ namespace MissionPlanner.Controls
                     
                     // 将整个燃油显示组件整体左移，靠近左侧边框一个像素的位置
                     int fuelXPos = 1;  // 靠近左侧边框一个像素
+
                     int fuelYPos = yPos[0] +10; // 与电池信息在同一行，略微向下偏移5像素
-                    
+
                     // 绘制"油量："文字，与电池信息对齐
                     string fuelText = "油量：";
                     SolidBrush textColor = _whiteBrush;
