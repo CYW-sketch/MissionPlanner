@@ -639,6 +639,67 @@ namespace MissionPlanner.GCSViews
                 }
             }
 
+            // 确保所有QuickView控件在初始化时具有绿色数字颜色
+            try
+            {
+                foreach (Control ctrl in tableLayoutPanelQuick.Controls)
+                {
+                    if (ctrl is QuickView qv)
+                    {
+                        // 如果没有设置Tag，则设置默认参数
+                        if (qv.Tag == null)
+                        {
+                            // 根据控件名称设置默认参数
+                            switch (ctrl.Name)
+                            {
+                                case "quickView1":
+                                    qv.Tag = "alt";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("alt");
+                                    break;
+                                case "quickView2":
+                                    qv.Tag = "groundspeed";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("groundspeed");
+                                    break;
+                                case "quickView3":
+                                    qv.Tag = "wp_dist";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("wp_dist");
+                                    break;
+                                case "quickView4":
+                                    qv.Tag = "yaw";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("yaw");
+                                    break;
+                                case "quickView5":
+                                    qv.Tag = "verticalspeed";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("verticalspeed");
+                                    break;
+                                case "quickView6":
+                                    qv.Tag = "DistToHome";
+                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("DistToHome");
+                                    break;
+                            }
+                            
+                            // 设置数据绑定
+                            if (qv.Tag != null)
+                            {
+                                qv.DataBindings.Clear();
+                                var b = new Binding("number", bindingSourceQuickTab, qv.Tag.ToString(), true);
+                                b.Format += new ConvertEventHandler(BindingTypeToNumber);
+                                b.Parse += new ConvertEventHandler(NumberToBindingType);
+                                qv.DataBindings.Add(b);
+                            }
+                        }
+                        
+                        // 确保数字颜色为绿色
+                        qv.numberColor = Color.LightGreen;
+                        qv.numberColorBackup = Color.LightGreen;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Debug(ex);
+            }
+
             CheckBatteryShow();
 
             // make sure the hud user items/warnings/checklist are using the current state
@@ -676,6 +737,12 @@ namespace MissionPlanner.GCSViews
             updateDisplayView();
 
             hud1.doResize();
+            
+            // 触发状态页面重绘，确保参数列表正常显示
+            if (tabStatus.IsHandleCreated)
+            {
+                tabStatus.Invalidate();
+            }
         }
 
         public void BUT_playlog_Click(object sender, EventArgs e)
