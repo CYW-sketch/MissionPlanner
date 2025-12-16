@@ -268,7 +268,7 @@ namespace MissionPlanner.GCSViews
                 if (cmbRcStep != null)
                 {
                     cmbRcStep.Items.Clear();
-                    cmbRcStep.Items.AddRange(new object[] { "15%", "25%", "30%" });
+                    cmbRcStep.Items.AddRange(new object[] { "5%", "15%", "25%" });// 5%, 15%, 25%changed
                     cmbRcStep.SelectedIndex = 1; // default 25%
                     cmbRcStep.SelectedIndexChanged += (s, e2) => UpdateRcStepFromUI();
                 }
