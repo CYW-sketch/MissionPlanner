@@ -243,6 +243,22 @@ namespace MissionPlanner.GCSViews
 
             InitializeComponent();
 
+            try
+            {
+                if (contextMenuStripQuickView != null && contextMenuStripQuickView.Items["resetQuickViewDefaultsToolStripMenuItem"] == null)
+                {
+                    var resetItem = new ToolStripMenuItem("Reset QuickView Defaults (5x6)")
+                    {
+                        Name = "resetQuickViewDefaultsToolStripMenuItem"
+                    };
+                    resetItem.Click += resetQuickViewDefaultsToolStripMenuItem_Click;
+                    contextMenuStripQuickView.Items.Insert(0, resetItem);
+                }
+            }
+            catch
+            {
+            }
+
             // initialize responsive layout for remote destination panel
             try
             {
@@ -268,7 +284,7 @@ namespace MissionPlanner.GCSViews
                 if (cmbRcStep != null)
                 {
                     cmbRcStep.Items.Clear();
-                    cmbRcStep.Items.AddRange(new object[] { "5%", "15%", "25%" });// 5%, 15%, 25%changed
+                    cmbRcStep.Items.AddRange(new object[] { "5%", "15%", "25%" });
                     cmbRcStep.SelectedIndex = 1; // default 25%
                     cmbRcStep.SelectedIndexChanged += (s, e2) => UpdateRcStepFromUI();
                 }
@@ -579,12 +595,29 @@ namespace MissionPlanner.GCSViews
                 hud1.Dock = DockStyle.Fill;
             }
 
+            // 检查是否是第一次运行（没有任何quickView设置）
+            bool isFirstRun = true;
+            for (int f = 1; f < 31; f++)
+            {
+                if (Settings.Instance["quickView" + f] != null)
+                {
+                    isFirstRun = false;
+                    break;
+                }
+            }
+
+            // 如果是第一次运行，初始化默认参数
+            if (isFirstRun)
+            {
+                InitializeDefaultQuickViewParameters();
+            }
+
             if (Settings.Instance.ContainsKey("quickViewRows"))
             {
                 setQuickViewRowsCols(Settings.Instance["quickViewCols"], Settings.Instance["quickViewRows"]);
             }
 
-            for (int f = 1; f < 30; f++)
+            for (int f = 1; f < 31; f++)
             {
                 // load settings
                 if (Settings.Instance["quickView" + f] != null)
@@ -596,8 +629,7 @@ namespace MissionPlanner.GCSViews
 
                         // set description and unit
                         string desc = Settings.Instance["quickView" + f];
-                        if (QV.Tag == null)
-                            QV.Tag = desc;
+                        QV.Tag = desc;
                         QV.desc = MainV2.comPort.MAV.cs.GetNameandUnit(desc);
 
                         // set databinding for value
@@ -626,10 +658,30 @@ namespace MissionPlanner.GCSViews
                         if (ctls.Length > 0)
                         {
                             QuickView QV = (QuickView) ctls[0];
+
+                            if (f == 30)
+                            {
+                                QV.Tag = "";
+                                QV.desc = "";
+                                QV.DataBindings.Clear();
+                            }
+                            else
+                            {
                             string desc = QV.desc;
                             if (QV.Tag == null)
                                 QV.Tag = desc;
-                            QV.desc = MainV2.comPort.MAV.cs.GetNameandUnit(QV.Tag.ToString());
+
+                            var tag = QV.Tag?.ToString();
+                            if (string.IsNullOrWhiteSpace(tag))
+                            {
+                                QV.desc = "";
+                                QV.DataBindings.Clear();
+                            }
+                            else
+                            {
+                                QV.desc = MainV2.comPort.MAV.cs.GetNameandUnit(tag);
+                            }
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -637,67 +689,6 @@ namespace MissionPlanner.GCSViews
                         log.Debug(ex);
                     }
                 }
-            }
-
-            // 确保所有QuickView控件在初始化时具有绿色数字颜色
-            try
-            {
-                foreach (Control ctrl in tableLayoutPanelQuick.Controls)
-                {
-                    if (ctrl is QuickView qv)
-                    {
-                        // 如果没有设置Tag，则设置默认参数
-                        if (qv.Tag == null)
-                        {
-                            // 根据控件名称设置默认参数
-                            switch (ctrl.Name)
-                            {
-                                case "quickView1":
-                                    qv.Tag = "alt";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("alt");
-                                    break;
-                                case "quickView2":
-                                    qv.Tag = "groundspeed";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("groundspeed");
-                                    break;
-                                case "quickView3":
-                                    qv.Tag = "wp_dist";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("wp_dist");
-                                    break;
-                                case "quickView4":
-                                    qv.Tag = "yaw";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("yaw");
-                                    break;
-                                case "quickView5":
-                                    qv.Tag = "verticalspeed";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("verticalspeed");
-                                    break;
-                                case "quickView6":
-                                    qv.Tag = "DistToHome";
-                                    qv.desc = MainV2.comPort.MAV.cs.GetNameandUnit("DistToHome");
-                                    break;
-                            }
-                            
-                            // 设置数据绑定
-                            if (qv.Tag != null)
-                            {
-                                qv.DataBindings.Clear();
-                                var b = new Binding("number", bindingSourceQuickTab, qv.Tag.ToString(), true);
-                                b.Format += new ConvertEventHandler(BindingTypeToNumber);
-                                b.Parse += new ConvertEventHandler(NumberToBindingType);
-                                qv.DataBindings.Add(b);
-                            }
-                        }
-                        
-                        // 确保数字颜色为绿色
-                        qv.numberColor = Color.LightGreen;
-                        qv.numberColorBackup = Color.LightGreen;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.Debug(ex);
             }
 
             CheckBatteryShow();
@@ -737,12 +728,6 @@ namespace MissionPlanner.GCSViews
             updateDisplayView();
 
             hud1.doResize();
-            
-            // 触发状态页面重绘，确保参数列表正常显示
-            if (tabStatus.IsHandleCreated)
-            {
-                tabStatus.Invalidate();
-            }
         }
 
         public void BUT_playlog_Click(object sender, EventArgs e)
@@ -5674,6 +5659,58 @@ namespace MissionPlanner.GCSViews
             }
         }
 
+        /// <summary>
+        /// 初始化默认的QuickView参数（第一次运行时调用）
+        /// </summary>
+        private void InitializeDefaultQuickViewParameters()
+        {
+            // 根据用户列出的参数，设置默认的QuickView参数映射
+            // 这些参数会在第一次运行时自动被选中
+            var defaultParams = new Dictionary<int, string>
+            {
+                { 1, "alt" },                    // Altitude (m)
+                { 2, "groundspeed" },            // 地速(m/s)
+                { 3, "battery_voltage" },        // 电池电压(V)
+                { 4, "nav_pitch" },              // 俯仰目标(deg)
+                { 5, "ter_curalt" },             // Terrain AGL
+                { 6, "altasl" },                 // Altitude (m)
+                { 7, "gpshdop" },                // GPS HDOP
+                { 8, "battery_voltage2" },       // 电池2电压
+                { 9, "pitch" },                  // 俯仰(deg)
+                { 10, "ay" },                    // 加速度Y
+                { 11, "verticalspeed" },         // 升降速度(m/s)
+                { 12, "gpshdop2" },              // Gps HDOP2
+                { 13, "watts" },                 // 电池瓦数
+                { 14, "nav_roll" },              // 横滚目标(deg)
+                { 15, "az" },                    // 加速度Z
+                { 16, "distTraveled" },          // 行驶距离(m)
+                { 17, "satcount" },              // 卫星数
+                { 18, "current" },               // 电池电流(Amps)
+                { 19, "roll" },                  // 横滚(deg)
+                { 20, "gx" },                    // 陀螺仪
+                { 21, "DistToHome" },            // Dist to Home (m)
+                { 22, "satcount2" },             // Sat Count2
+                { 23, "current2" },              // 电池2电流(Amps)
+                { 24, "lat" },                   // 纬度 (dd)
+                { 25, "rpm2" },                  // rpm2
+                { 26, "timeInAir" },             // 留空时间 (sec)
+                { 27, "rangefinder1" },          // rangeFinder1
+                { 28, "battery_remaining" },     // 电池剩余(%)
+                { 29, "lng" }                    // 经度(dd)
+            };
+
+            var cols = 5;
+            var rows = 6;
+            Settings.Instance["quickViewCols"] = cols.ToString();
+            Settings.Instance["quickViewRows"] = rows.ToString();
+
+            // 将默认参数保存到Settings中
+            foreach (var param in defaultParams)
+            {
+                Settings.Instance["quickView" + param.Key] = param.Value;
+            }
+        }
+
         private void setQuickViewRowsCols(string cols, string rows)
         {
             tableLayoutPanelQuick.PerformLayout();
@@ -5801,6 +5838,26 @@ namespace MissionPlanner.GCSViews
             {
                 listQuickView.Clear();
             }
+
+            var quickviews = tableLayoutPanelQuick.Controls.OfType<QuickView>()
+                .Select(qv =>
+                {
+                    int n;
+                    if (qv.Name != null && qv.Name.StartsWith("quickView") && int.TryParse(qv.Name.Substring("quickView".Length), out n))
+                        return new { QV = qv, N = n };
+                    return null;
+                })
+                .Where(x => x != null)
+                .OrderBy(x => x.N)
+                .ToList();
+
+            for (int i = 0; i < Math.Min(total, quickviews.Count); i++)
+            {
+                var col = i % tableLayoutPanelQuick.ColumnCount;
+                var row = i / tableLayoutPanelQuick.ColumnCount;
+                tableLayoutPanelQuick.SetCellPosition(quickviews[i].QV, new TableLayoutPanelCellPosition(col, row));
+            }
+
             for (int i = 0; i < tableLayoutPanelQuick.ColumnCount; i++)
             {
                 if (tableLayoutPanelQuick.ColumnStyles.Count <= i)
@@ -5857,6 +5914,29 @@ namespace MissionPlanner.GCSViews
 
                     Activate();
                 }
+            }
+        }
+
+        private void resetQuickViewDefaultsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                for (int f = 1; f < 31; f++)
+                {
+                    Settings.Instance.Remove("quickView" + f);
+                }
+
+                Settings.Instance.Remove("quickViewRows");
+                Settings.Instance.Remove("quickViewCols");
+
+                InitializeDefaultQuickViewParameters();
+                Settings.Instance.Save();
+
+                Activate();
+            }
+            catch (Exception ex)
+            {
+                log.Debug(ex);
             }
         }
 
